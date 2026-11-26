@@ -67,30 +67,20 @@ def audit_vectors(osm,folder):
         except (ValueError,OSError,KeyError,TypeError) as exc:issues.append({'source':name,'error':str(exc)})
     return result,issues,manifests
 
-def image_audit(osm,image_path,manifest):
+def image_audit(osm,sampler,high_resolution=False):
     """Find lateral shifts with stronger paired edge contrast along straight stretches.
     This is an image signal, not semantic road/rail segmentation or a proposed correction.
     """
     import numpy as np
-    from PIL import Image
-    raw=image_path.read_bytes()
-    if hashlib.sha256(raw).hexdigest()!=manifest['sha256']:raise ValueError('Aerial checksum mismatch')
-    with Image.open(image_path) as im:gray=np.asarray(im.convert('L'),dtype=np.float32)
-    h,w=gray.shape
-    if (w,h)!=(manifest['width'],manifest['height']):raise ValueError('Aerial dimensions mismatch')
-    xmin,ymin,xmax,ymax=manifest['extent']
-    if not xmin<xmax or not ymin<ymax:raise ValueError('Invalid image extent')
+    from imagery_analysis import rail_pair_scores
     local_crs=CRS.from_proj4(json.loads((ROOT/'world.json').read_text())['projection'])
     local=Transformer.from_crs(3857,local_crs,always_xy=True);back=Transformer.from_crs(local_crs,3857,always_xy=True)
     window=transform(local.transform,box(*osm['extent'])).buffer(-18)
-    offsets=np.arange(-12,13,1,dtype=float)
+    offsets=np.linspace(-12,12,97 if high_resolution else 25)
+    baseline=len(offsets)//2
     def sample(x,y):
         a,b=back.transform(x,y)
-        px=(a-xmin)/(xmax-xmin)*w-.5;py=(ymax-b)/(ymax-ymin)*h-.5
-        valid=(px>=0)&(px<w-1)&(py>=0)&(py<h-1)
-        if not np.all(valid):return None
-        ix=px.astype(int);iy=py.astype(int);fx=px-ix;fy=py-iy
-        return (1-fy)*((1-fx)*gray[iy,ix]+fx*gray[iy,ix+1])+fy*((1-fx)*gray[iy+1,ix]+fx*gray[iy+1,ix+1])
+        return sampler.sample(a,b)
     flags=[];tested=0
     for f in osm['features']:
         kind=f['kind'];t=f['tags']
@@ -108,8 +98,9 @@ def image_audit(osm,image_path,manifest):
                 chordline=LineString([a,b])
                 if any(Point(p).distance(chordline)>1 for p in seg.coords):continue
                 nx,ny=-dy/chord,dx/chord
-                tgrid=np.linspace(.1,.9,16)
+                tgrid=np.linspace(.1,.9,40 if high_resolution else 16)
                 cx=a[0]+dx*tgrid;cy=a[1]+dy*tgrid
+                sampler.used.clear()
                 scores=[]
                 for halfwidth in widths:
                     contrasts=[]
@@ -122,30 +113,40 @@ def image_audit(osm,image_path,manifest):
                     if len(contrasts)==2:
                         scores.append(np.median(np.minimum(*contrasts),axis=1))
                 if not scores:continue
-                score=np.max(scores,axis=0);tested+=1
-                best=int(np.argmax(score));base=float(score[12]);peak=float(score[best]);shift=float(offsets[best])
+                score=np.max(scores,axis=0);method='paired_corridor_edges'
+                if kind=='rail' and high_resolution:
+                    rail=rail_pair_scores(sample,cx,cy,nx,ny,offsets)
+                    if rail is not None and float(np.max(rail))>=8:
+                        score=rail;method='gauge_constrained_rail_ridges'
+                tested+=1
+                best=int(np.argmax(score));base=float(score[baseline]);peak=float(score[best]);shift=float(offsets[best])
                 # Require material gain and avoid maxima at search boundary.
-                if 3<=abs(shift)<12 and peak>=12 and peak-base>=7 and peak>=1.5*max(base,1):
+                if (1.5 if high_resolution else 3)<=abs(shift)<12 and peak>=(8 if method=='gauge_constrained_rail_ridges' else 12) and peak-base>= (5 if high_resolution else 7) and peak>=1.5*max(base,1):
                     shifted=LineString([(x+nx*shift,y+ny*shift) for x,y in seg.coords])
-                    flags.append(flag(f'image/{f["id"]}/{pi}/{i}','image_alignment',shifted,{'osm_id':f['id'],'feature_kind':kind,'shift_m_signed_left':shift,'baseline_edge_score':round(base,2),'candidate_edge_score':round(peak,2),'aerial_sha256':manifest['sha256'],'interpretation':'Stronger paired image edge contrast at an offset; could be curb, parallel track, shadow, adjacent road or registration error.'},back))
+                    flags.append(flag(f'image/{f["id"]}/{pi}/{i}','image_alignment',shifted,{'osm_id':f['id'],'feature_kind':kind,'shift_m_signed_left':shift,'baseline_edge_score':round(base,2),'candidate_edge_score':round(peak,2),'imagery_digest':sampler.digest,'imagery_ids':sorted(sampler.used),'method':method,'interpretation':'Stronger paired image edge contrast at an offset; could be curb, parallel track, shadow, adjacent road or registration error.'},back))
     return flags,tested
 
 def main():
     import argparse
     from workbench_data import normalize,pilot_extent
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--skip-image',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--skip-image',action='store_true');p.add_argument('--image-source',default='dwr',help='dwr, naip, or explicit DWR snapshot/group ID');a=p.parse_args()
     osm=normalize(ROOT/'data/pilot.osm',pilot_extent())
     features,issues,sources=audit_vectors(osm,ROOT/'data/transport')
-    aerial=ROOT/'data/aerial';tested=0;image_hash=None
+    tested=0;image_hash=None;image_sources=[];image_digest=None
     if not a.skip_image:
         try:
-            m=json.loads((aerial/'manifest.json').read_text())
-            image_flags,tested=image_audit(osm,aerial/'pilot.jpg',m)
-            features.extend(image_flags);image_hash=m['sha256']
-        except (ImportError,OSError,ValueError,KeyError) as e:issues.append({'source':'aerial','error':str(e)})
+            from imagery_analysis import Sampler,select
+            sampler=Sampler(select(a.image_source))
+            image_sources=sampler.sources;image_digest=sampler.digest
+            if a.image_source=='naip':image_hash=image_sources[0]['sha256']
+            print('Analyzing',len(image_sources),'image patches',flush=True)
+            image_flags,tested=image_audit(osm,sampler,high_resolution=a.image_source!='naip')
+            features.extend(image_flags)
+        except (ImportError,OSError,ValueError,KeyError) as e:
+            p.exit(1,f'Image audit failed: {e}\nExisting audit left unchanged. Use --skip-image for vectors only.\n')
     out=ROOT/'output/transport';out.mkdir(parents=True,exist_ok=True)
     counts=dict(Counter(f['kind'] for f in features))
-    data={'source_sha256':osm['source_sha256'],'extent':osm['extent'],'aerial_sha256':image_hash,'sources':sources,'features':features,'issues':issues,'counts':counts,'image_windows_tested':tested,'status':'review_only','notes':'Vector gaps are not confirmed missing roads. Image flags are heuristic paired edge contrast, not semantic segmentation. No geometry altered.'}
+    data={'source_sha256':osm['source_sha256'],'extent':osm['extent'],'aerial_sha256':image_hash,'image_source':None if a.skip_image else a.image_source,'image_sources':image_sources,'image_digest':image_digest,'analysis_assumption':'DWR local analysis permitted by project working assumption; rights not independently verified' if not a.skip_image and a.image_source!='naip' else None,'sources':sources,'features':features,'issues':issues,'counts':counts,'image_windows_tested':tested,'status':'review_only','notes':'Vector gaps are not confirmed missing roads. Image flags are heuristic paired corridor edge or rail ridge contrast, not semantic segmentation. No geometry altered.'}
     temp=out/'audit.tmp';temp.write_text(json.dumps(data,allow_nan=False));temp.replace(out/'audit.json')
     print(json.dumps({k:v for k,v in data.items() if k not in ('features','sources')},indent=2))
 if __name__=='__main__':main()

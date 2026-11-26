@@ -41,7 +41,7 @@ for(const [id,items] of imageryOptions){
 $('imagerySelect').onchange=()=>{
  activeImagery=imageryOptions.get($('imagerySelect').value)||null;
  const m=activeImagery?.[0];
- $('imageryInfo').textContent=m?JSON.stringify({usage:m.usage,registration:m.registration,patches:activeImagery.length,native_gsd_m:m.native_gsd_m,rights:m.rights_note||'Not reviewed',note:'Additional imagery is display-only in this version.'},null,2):'';
+ $('imageryInfo').textContent=m?JSON.stringify({usage:m.usage,registration:m.registration,patches:activeImagery.length,native_gsd_m:m.native_gsd_m,rights:m.rights_note||'Not reviewed',note:'DWR available to local transport audit under project assumption.'},null,2):'';
  queueImagery();
 };
 $('imageryOpacity').oninput=()=>imageryGroup.style.opacity=Number($('imageryOpacity').value)/100;
@@ -142,7 +142,7 @@ $('save').onclick=async()=>{try{const response=await fetch('/api/proposals',{met
 $('count').textContent=d.features.length+' mapped features · '+d.issues.length+' issues';
 $('metadata').textContent=d.aerial?JSON.stringify({provider:d.aerial.provider,requested_year:d.aerial.requested_year,candidate_years:[...new Set(d.aerial.catalog_candidates.map(c=>c.Year))],observed_at:d.aerial.observed_at,notes:d.aerial.notes},null,2):'No aerial snapshot. Run fetch_aerial.py.';
 $('coverage').textContent=d.building_evidence?JSON.stringify({osm_buildings:d.building_evidence.osm_buildings,overture:d.building_evidence.counts,osm_without_high_iou_match:d.building_evidence.osm_without_high_iou_match,notes:d.building_evidence.notes},null,2):(d.building_evidence_error||'Run fetch_buildings.py to load Overture.');
-$('transport').textContent=d.transport_audit?JSON.stringify({counts:d.transport_audit.counts,image_windows_tested:d.transport_audit.image_windows_tested,notes:d.transport_audit.notes},null,2):(d.transport_audit_error||'Run fetch_transport.py and transport_audit.py.');
+$('transport').textContent=d.transport_audit?JSON.stringify({counts:d.transport_audit.counts,image_source:d.transport_audit.image_source||'legacy NAIP',image_patches:d.transport_audit.image_sources?.length||0,image_windows_tested:d.transport_audit.image_windows_tested,notes:d.transport_audit.notes},null,2):(d.transport_audit_error||'Run fetch_transport.py and transport_audit.py.');
 $('issues').textContent=JSON.stringify([...d.issues,...(d.building_evidence?.issues||[]),...(d.transport_audit?.issues||[])].slice(0,50),null,2);await loadProposals()
 })().catch(e=>document.getElementById('status').textContent=e.message)
 </script></html>

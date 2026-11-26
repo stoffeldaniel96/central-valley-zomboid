@@ -8,7 +8,8 @@ from shapely.ops import transform
 from workbench_data import ROOT,normalize,pilot_extent,TO_WGS
 from building_evidence import load_evidence
 from benchmark_export import capture
-from imagery_registry import list_layers,tile_path
+from imagery_registry import list_layers,tile_path,REGISTRY
+from fetch_elevation import sha
 from urllib.parse import urlsplit,parse_qs
 
 def json_bytes(x):return json.dumps(x,allow_nan=False).encode()
@@ -53,6 +54,14 @@ def main():
                 raise ValueError('Audit is stale; rerun transport_audit.py')
             if evidence.get('aerial_sha256') and (not data['aerial'] or evidence['aerial_sha256']!=data['aerial']['sha256']):
                 raise ValueError('Aerial audit is stale; rerun transport_audit.py')
+            known={m['id']:m for m in data['imagery_layers']}
+            for m in evidence.get('image_sources',[]):
+                if evidence.get('image_source')=='naip':
+                    if not data['aerial'] or m['sha256']!=data['aerial']['sha256']:raise ValueError('NAIP audit is stale')
+                else:
+                    actual=known.get(m['id'])
+                    if not actual or any(actual.get(k)!=m.get(k) for k in ('sha256','extent','width','height')) or sha(REGISTRY/m['id']/'original')!=m['sha256']:
+                        raise ValueError('DWR audit imagery changed; rerun transport_audit.py')
             for m in evidence.get('sources',[]):
                 raw=(ROOT/'data/transport'/(m['source']+'.geojson')).read_bytes()
                 if hashlib.sha256(raw).hexdigest()!=m['sha256']:raise ValueError('Transport audit is stale; rerun transport_audit.py')
