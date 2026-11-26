@@ -60,3 +60,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [x] User reports all 49 DWR pilot cache patches downloaded; local image quality improved on first test. Coverage/seam and actual audit validation pending.
 - [x] Adopt model-first dual-renderer asset contract and ten-placement non-singular sprite review rule.
 - [ ] Validate DWR mosaic transport audit, quantify coverage and align B01; build shared native/Viewpoint asset fixtures.
+
+- [x] Implement high-resolution DWR benchmark export and independent physical observation proposals (local validation pending).
+- [ ] Analyze actual B01 benchmark package, derive first surface/structure candidates and quantify error before scaling.

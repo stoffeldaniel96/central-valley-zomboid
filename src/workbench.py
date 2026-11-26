@@ -8,6 +8,8 @@ from shapely.ops import transform
 from workbench_data import ROOT,normalize,pilot_extent,TO_WGS
 from building_evidence import load_evidence
 from benchmark_export import capture
+from imagery_analysis import select as select_images
+from physical_observations import create as create_observation,CLASSES
 from imagery_registry import list_layers,tile_path,REGISTRY
 from fetch_elevation import sha
 from urllib.parse import urlsplit,parse_qs
@@ -33,6 +35,9 @@ def main():
     aerial=ROOT/'data/aerial';ledger=ROOT/'data/corrections.json';lock=Lock()
     def read_ledger():
         return json.loads(ledger.read_text()) if ledger.exists() else []
+    observations=ROOT/'data/physical_observations.json'
+    def read_observations():
+        return json.loads(observations.read_text()) if observations.exists() else []
     def aerial_manifest():
         if not (aerial/'manifest.json').exists() or not (aerial/'pilot.jpg').exists():return None
         m=json.loads((aerial/'manifest.json').read_text())
@@ -40,6 +45,7 @@ def main():
         return m
     data['aerial']=aerial_manifest()
     data['imagery_layers']=list_layers()
+    data['physical_classes']=CLASSES
     building_dir=ROOT/'data/buildings'
     data['building_evidence']=None
     if (building_dir/'overture.geojson').exists() and (building_dir/'manifest.json').exists():
@@ -76,7 +82,10 @@ def main():
                 try:
                     params=parse_qs(urlsplit(self.path).query)
                     bounds=[float(x) for x in params['bbox'][0].split(',')]
-                    raw=capture(data,bounds,aerial/'pilot.jpg')
+                    selected=params.get('imagery',[''])[0]
+                    items=select_images(selected) if selected else []
+                    with lock:obs=read_observations()
+                    raw=capture(data,bounds,aerial/'pilot.jpg',items,obs)
                     self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Disposition','attachment; filename="intersection-benchmark.zip"');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
                 except (ValueError,KeyError,OSError) as e:self.reply(400,json_bytes({'error':str(e)}))
             elif urlsplit(self.path).path=='/api/imagery/tile':
@@ -87,6 +96,8 @@ def main():
                     else:self.reply(404,b'{}')
                 except (ValueError,KeyError,OSError):self.reply(400,b'{}')
             elif self.path=='/api/data':self.reply(200,json_bytes(data))
+            elif self.path=='/api/observations':
+                with lock:self.reply(200,json_bytes(read_observations()))
             elif self.path=='/api/proposals':
                 with lock:self.reply(200,json_bytes(read_ledger()))
             elif self.path=='/api/export':
@@ -97,12 +108,17 @@ def main():
             elif self.path=='/aerial.jpg' and data['aerial']:self.reply(200,(aerial/'pilot.jpg').read_bytes(),'image/jpeg')
             else:self.reply(404,b'{}')
         def do_POST(self):
-            if self.path!='/api/proposals' or self.headers.get('Origin') not in (f'http://127.0.0.1:{a.port}',f'http://localhost:{a.port}'):
+            if self.path not in ('/api/proposals','/api/observations') or self.headers.get('Origin') not in (f'http://127.0.0.1:{a.port}',f'http://localhost:{a.port}'):
                 self.reply(403,b'{}');return
             try:
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=250000:raise ValueError('Invalid request size')
                 b=json.loads(self.rfile.read(size))
+                if self.path=='/api/observations':
+                    entry=create_observation(b,data['extent'],data['imagery_layers'])
+                    with lock:
+                        entries=read_observations();entries.append(entry);temp=observations.with_suffix('.tmp');temp.write_bytes(json_bytes(entries));temp.replace(observations)
+                    self.reply(201,json_bytes(entry));return
                 entry=proposal(features[b['feature_id']],b['geometry'],b['rationale'],data['source_sha256'],b['evidence_notes'],data['extent'])
                 if data['aerial']:entry['displayed_aerial_id']=data['aerial']['id']
                 with lock:
