@@ -12,14 +12,14 @@ Research, not an engine test. Target exact local build must be recorded; communi
 
 ## Depth and structure
 - Community reverse-engineering indicates baked per-tile depth PNGs and assignment mappings drive depth rendering; geometry primitives are authoring input, not automatic collision meshes. Minimal tileGeometry.txt reportedly gates loading custom depth maps. Verify depth encoding against vanilla fixtures and in-game test occlusion with player, dropped item, cutaway and light.
-- Render the same parameterized model into native sprites and depth textures, with optional separate OBJ assets. Do not assume arbitrary diagonal wall collision from a correct-looking sprite. Native wall edge and room/door mechanics need their own tests.
+- Render the same parameterized model into native sprites and depth textures, with corresponding Viewpoint-ready model assets wherever physical volume matters. Do not assume arbitrary diagonal wall collision from a correct-looking sprite. Native wall edge and room/door mechanics need their own tests.
 - Native API exposes sloped surfaces, apparent Z, min/max and direction. Community notes identify vanilla ramps with 5% storey increment per square. Test whether mod-defined min/max are honored, arbitrary slope ranges, direction, continuity, vehicles, zombies, projectiles and stacked surfaces. Native ramps are not proven general DEM support.
 - 42.21 changed certain edge API signatures; inspect installed APIs before writing Lua. Exact diagonal wall collision, room flood fill, cutaway, opening interaction and multiplayer remain unknown.
 
 ## Existing tools / optional backends
 - Unjammer PZTools: native 256 and legacy 300 cells, TileZed/WorldEd/BuildingEd. Z3R0-BYT3Z branch also documents depth-map authoring. Evaluate exact version/license and output in a disposable mod.
 - guspuffygit project-zomboid-tile-cli: standalone Go atlas and tile-definition pack/unpack, floor splitting, depth output. Small public repo, no visible license in root listing; evaluate as external tool only until rights and behavior checked. A codec round-trip does not prove runtime semantics. Do not adopt full-coverage depth output as physically correct.
-- Viewpoint resource packs bind OBJ assets to named tiles, and support higher-resolution flat floor textures with optional PBR maps. This is a plausible second backend, not native isometric support or new collision.
+- Viewpoint resource packs bind OBJ assets to named tiles, and support higher-resolution flat floor textures with optional PBR maps. This is the required compatibility backend, not native isometric support or new collision.
 - Viewpoint documented draw callbacks support custom world-space meshes with depth; no callback when an Iris/Minecraft shaderpack owns frame. Test mesh integration, lighting, streaming and compatibility before depending on it. Viewpoint Better Terrain reports physical relief but standard map only, multiplayer unvalidated. Ask maintainers about custom elevation/mesh data interface and compatibility before extending.
 - Indie Stone Oct 2026 explicitly supports Lua modding, not Java mods/loaders; Java internals can break on updates. Keep native path baseline, optional narrowly scoped bridge only if required.
 
@@ -28,7 +28,7 @@ T01 floor calibration: 16x16 or 32x32 native squares; original synthetic asphalt
 T02 depth fixture: one raised curb, one slanted visual wall, one rectangular object. Compare default depth, measured depth and incorrect depth; player foreground/background and drop items. No collision claim.
 T03 structural room: cardinal control vs 45-degree visual walls with native staircase-like collision proxy; quantify blocked/free area, corner leakage, doors/windows, LOS, room assignment, cutaway, pathfinding, construction/destruction. If mismatch material, investigate minimal extension or upstream capability.
 T04 native slope: flat control, 20-square vanilla ramp, custom shallow ramp and elevated deck above traversable route. Verify apparent Z with actors and cars, AI, visibility, MP/save. Compare actual meters/storey calibration rather than assume physical scale.
-T05 Viewpoint parity: same original models and flat material textures; compare isometric native and first/third-person, then mesh extension only if necessary. No dependency decision before evidence.
+T05 Viewpoint parity: same original models and flat material textures; compare isometric native and first/third-person, then mesh extension only if necessary. Full Viewpoint compatibility is required; exact backend integration and optional dependencies remain subject to tests.
 T06 scale: repeat 256x256 synthetic terrain at several densities/quantization tolerances, measure serialized sizes, unique sprites, page counts, RAM/VRAM, loading, frame time. Native 256-cell compiler/export, save/reload, version metadata. Only then scale to real B01.
 
 ## Sources
@@ -40,3 +40,6 @@ T06 scale: repeat 256x256 synthetic terrain at several densities/quantization to
 - Mapping tools: https://github.com/Unjammer/PZ_Mapping_Tools ; https://github.com/Z3R0-BYT3Z/PZ_Mapping_Tools
 - Candidate external codec: https://github.com/guspuffygit/project-zomboid-tile-cli
 - Viewpoint: https://docs.projectviewpoint.org/resource-packs/tiles/ ; https://docs.projectviewpoint.org/resource-packs/format/ ; https://docs.projectviewpoint.org/api/draw-callbacks/ ; https://steamcommunity.com/sharedfiles/filedetails/?id=3815223174
+
+## Requirement clarification
+The user requires full Viewpoint compatibility, with no sprite-only volumetric assets where a model is relevant. Native play remains supported. The reusable vocabulary and ten-placement review threshold apply to the paired representation; see asset-contract.md.

@@ -17,7 +17,7 @@ Supersedes coverage-first plan. First product is Turlock, not Modesto–Merced. 
 | 03 | Complexity analysis | Real orientation histograms and spatial heatmaps; raw vs sanitized results |
 | 04 | Asset inventory | Local vanilla catalog of families, orientations, states and properties; measured missing variants; AI/procedural production trial |
 | 05 | Arbitrary-angle surfaces | Parking lot, markings and curves with continuous visual boundaries |
-| 06 | Model-first / 3D | Compare native sprites, model-to-sprite and optional runtime rendering; Viewpoint compatibility/licensing investigation |
+| 06 | Model-first / 3D | Shared model-first asset sources; native sprite/depth plus required Viewpoint compatibility |
 | 07 | Source reconciliation | Georeferenced OSM + independent licensed imagery/elevation; provenance, disagreement and completeness metrics |
 | 08 | Adaptive resolution | Subtile rasterizer, deduplication and atlas/memory benchmarks; physical implications tested separately |
 | 09 | Architectural vocabulary | Graybox primitive/assembly/archetype registry, coverage audit, reusable gap-filling workflow |
@@ -32,7 +32,7 @@ Parallel research is encouraged; gates are evidence-based, not deadlines. No fab
 |---|---|---|
 | 10 | Vertical geometry | DEM and independently elevated route model; embankment and bridge benchmark with physical traversal |
 | 11 | Chronology reconciliation | 2026 geography / pre-2008 institutional reference / 1993 material culture discrepancy register |
-| 12 | Ecosystem interoperability | Versioned native, Viewpoint and alternative renderer capability matrix; investigate shared interfaces and upstream plans |
+| 12 | Ecosystem interoperability | Versioned native and Viewpoint compatibility acceptance tests; investigate shared interfaces and upstream plans |
 
 G0 implementation begins with read-only local asset and OSM geometry diagnostics. Their output is evidence, not a completed semantic reconstruction. See docs/first-deliverable.md.
 
@@ -56,3 +56,7 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 
 - [x] Implement 3DEP catalog discovery, explicit cached downloads, metric bare-earth grid and sparse classified point-cloud height diagnostics (live verification pending).
 - [ ] Verify California Gaps pilot tiles, vertical metadata, classified returns and elevation preview; derive road/rail profiles and building height evidence.
+
+- [x] User reports all 49 DWR pilot cache patches downloaded; local image quality improved on first test. Coverage/seam and actual audit validation pending.
+- [x] Adopt model-first dual-renderer asset contract and ten-placement non-singular sprite review rule.
+- [ ] Validate DWR mosaic transport audit, quantify coverage and align B01; build shared native/Viewpoint asset fixtures.
