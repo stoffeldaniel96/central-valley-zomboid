@@ -16,5 +16,10 @@
     0.25,
     0.125
   ],
-  "knoxmap": "optional_baseline_and_candidate_native_backend"
+  "knoxmap": "optional_baseline_and_candidate_native_backend",
+  "geography_reference_year": 2026,
+  "institutional_reference_latest_year": 2007,
+  "outbreak_year": null,
+  "elevation": "continuous terrain plus independently elevated structures",
+  "interop": "shared interfaces; avoid mandatory forks"
 }

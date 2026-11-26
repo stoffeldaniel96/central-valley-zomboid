@@ -19,3 +19,6 @@ Prefer native map formats and custom tiles/model-to-sprite rendering. Investigat
 
 ## Engineering boundaries
 No claim of playable production generator, diagonal collision, arbitrary-angle rendering or seamless sector compilation yet. Existing geographic scripts remain experimental. Start with small verified benchmark locations, not city-scale mass generation.
+
+## Elevation and interoperability
+Author continuous vertical coordinates in meters with explicit source vertical datum, units, accuracy and uncertainty. Separate bare-earth DEM, surface/roof observations, engineered road grades and independent decks/tunnels; preserve stacked crossings and connectivity. Native floors are backend representations, not the vertical truth. Test on CA-99 embankments and south Turlock railway overpass (exact location to verify). Validate grades, deck clearance, pedestrian/zombie/vehicle traversal, collision and sight. Evaluate Viewpoint Better Terrain and other community projects before duplicating behavior; no runtime dependency approved. Separate native and extended adapters; track official API/format changes, version compatibility and multiplayer/save implications.

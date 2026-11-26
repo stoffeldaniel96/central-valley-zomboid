@@ -13,3 +13,6 @@ Prefer native engine and custom assets first, then external generators and suppo
 
 ## Fidelity
 Measure geographic, physical, functional, architectural, environmental, infrastructural, period and graphical fidelity separately. A visually accurate but physically broken feature fails functional acceptance. Do not silently reduce fidelity to accommodate a compiler. Use reference uncertainty, source rights and explicit review status; do not claim exactness where evidence is missing.
+
+## Chronology and vertical fidelity
+Use modern 2026 geography, a provisional pre-2008 institutional/commercial reference cutoff, and 1993 material culture. These are independent layers, not a historically exact single year or a fixed outbreak date. Track anachronisms in institutions, population, infrastructure, economic functions and materials; retain modern geometry unless explicitly overridden. Terrain elevation, grades, embankments, bridges and vertically overlapping routes are physical fidelity requirements. Prefer interoperable shared extensions over a private engine fork.

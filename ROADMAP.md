@@ -26,3 +26,12 @@ Supersedes coverage-first plan. First product is Turlock, not Modesto–Merced. 
 G0: independently inspect source data and inventory native assets. G1: reproduce a small intersection with accurate continuous terrain; document reference uncertainty. G2: diagonal room and native compiler compatibility experiments. G3: benchmark residential, commercial, institutional, industrial and rural environments with functional grayboxes. G4: complete Turlock physical/functional graybox with no unresolved critical gameplay failures. G5: graphical/material/1993 finish and fidelity validation; first public product. G6: expand using proven tools and assets.
 
 Parallel research is encouraged; gates are evidence-based, not deadlines. No fabricated coverage percentages or engine capability claims. See docs/benchmarks.md.
+
+## Additional R&D
+| ID | Work | First deliverable / exit test |
+|---|---|---|
+| 10 | Vertical geometry | DEM and independently elevated route model; embankment and bridge benchmark with physical traversal |
+| 11 | Chronology reconciliation | 2026 geography / pre-2008 institutional reference / 1993 material culture discrepancy register |
+| 12 | Ecosystem interoperability | Versioned native, Viewpoint and alternative renderer capability matrix; investigate shared interfaces and upstream plans |
+
+G0 implementation begins with read-only local asset and OSM geometry diagnostics. Their output is evidence, not a completed semantic reconstruction. See docs/first-deliverable.md.
