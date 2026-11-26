@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central Valley Workbench</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#171a1d;color:#e8e9e8;font:14px system-ui}header{padding:12px 18px;background:#23272b;display:flex;gap:20px;align-items:center}header strong{font-size:19px}main{display:grid;grid-template-columns:220px minmax(300px,1fr) 300px;height:calc(100vh - 54px)}aside{padding:16px;overflow:auto;background:#202428}h3{font-size:14px;margin:16px 0 8px}label{display:block;margin:9px 0}button,input,textarea{font:inherit;color:inherit;background:#31373c;border:1px solid #606971;border-radius:4px;padding:7px}button{cursor:pointer;margin:3px 0}button:disabled{opacity:.5;cursor:default}textarea{width:100%;min-height:70px}a{color:#99cdea}#map{width:100%;height:100%;background:#38413e;touch-action:none}#map path{vector-effect:non-scaling-stroke;stroke-width:1.4;cursor:pointer}#map path.selected{stroke:#ffe480!important;stroke-width:3}#map path.proposed{stroke:#ff9b66;fill:#ff9b6625;stroke-width:2;stroke-dasharray:5 3;pointer-events:none}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}small{color:#acb6ba}#status{color:#e8c47d;overflow-wrap:anywhere}#list{max-height:220px;overflow:auto}#list button{width:100%;text-align:left} @media(max-width:850px){main{grid-template-columns:150px 1fr 220px}}
+</style>
+<header><strong>Central Valley / Workbench</strong><span id="count">Loading pilot…</span><small>Observed geometry · proposals only</small></header>
+<main><aside><h3>Evidence layers</h3><label><input type="checkbox" id="aerialToggle" checked> NAIP aerial</label><label>Image opacity <input id="opacity" type="range" min="0" max="100" value="100"></label><div id="layers"></div><button id="reset">Reset view</button><h3>Source metadata</h3><pre id="metadata"></pre><h3>Normalization issues</h3><pre id="issues"></pre></aside>
+<svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+<aside><h3>Feature inspector</h3><p id="selected">Click a mapped feature.</p><pre id="tags"></pre><button id="edit" disabled>Redraw selected geometry</button><button id="finish" disabled>Finish redraw</button><button id="cancel" disabled>Cancel redraw</button><p><small>Scroll to zoom; drag background to pan. Redraw by clicking vertices. Only simple lines and hole-free polygons fully inside the pilot are editable.</small></p><label>Evidence (source/date/observation)<textarea id="evidence"></textarea></label><label>Rationale<textarea id="rationale"></textarea></label><button id="save" disabled>Save proposed correction</button><p id="status"></p><h3>Local proposal history</h3><div id="list"></div><a href="/api/export" download="proposed-corrections.geojson">Export proposed geometry (GeoJSON)</a><p><small>Not approved or applied. No source geometry is overwritten.</small></p></aside></main>
+<script>
+(async()=>{
+const $=id=>document.getElementById(id),svg=$('map'),ns='http://www.w3.org/2000/svg';
+const res=await fetch('/api/data');if(!res.ok)throw Error('Pilot data unavailable');const d=await res.json();
+const [xmin,ymin,xmax,ymax]=d.extent,W=xmax-xmin,H=ymax-ymin;
+let view=[0,0,W,H],selected=null,drawing=false,points=[],draft=null,proposals=[];
+const groups={},paths=new Map(),byId=new Map(d.features.map(f=>[f.id,f]));
+const xy=p=>[p[0]-xmin,ymax-p[1]],world=p=>[p[0]+xmin,ymax-p[1]];
+function el(tag,attrs,parent=svg){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.appendChild(e);return e}
+function line(coords,closed=false){return coords.map((p,i)=>(i?'L':'M')+xy(p).join(' ')).join(' ')+(closed?' Z':'')}
+function path(g){if(g.type==='LineString')return line(g.coordinates);if(g.type==='Polygon')return g.coordinates.map(r=>line(r,true)).join(' ');if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p.map(r=>line(r,true))).join(' ');return ''}
+function setView(){svg.setAttribute('viewBox',view.join(' '))}
+setView();const clip=el('clipPath',{id:'pilotClip'});el('rect',{x:0,y:0,width:W,height:H},clip);
+const stage=el('g',{'clip-path':'url(#pilotClip)'});el('rect',{x:0,y:0,width:W,height:H,fill:'#454e4a'},stage);
+let img;
+if(d.aerial){const [a,b,c,e]=d.aerial.extent;img=el('image',{href:'/aerial.jpg',x:a-xmin,y:ymax-e,width:c-a,height:e-b,preserveAspectRatio:'none','pointer-events':'none'},stage)}
+else $('aerialToggle').disabled=true;
+$('aerialToggle').onchange=()=>{if(img)img.style.display=$('aerialToggle').checked?'':'none'};
+$('opacity').oninput=()=>{if(img)img.style.opacity=$('opacity').value/100};
+const colors={parking:'#cbb8f4',building:'#77e2f3',road:'#ffd16b',rail:'#e9a8a1'};
+for(const k of Object.keys(colors)){groups[k]=el('g',{},stage);const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;check.onchange=()=>groups[k].style.display=check.checked?'':'none';label.append(check,' '+k);label.style.color=colors[k];$('layers').append(label)}
+for(const f of d.features){const p=el('path',{d:path(f.geometry),stroke:colors[f.kind],fill:f.geometry.type==='LineString'?'none':colors[f.kind]+'22','fill-rule':'evenodd'},groups[f.kind]);paths.set(f.id,p);p.addEventListener('click',e=>{if(drawing||moved)return;e.stopPropagation();select(f)})}
+const proposedLayer=el('g',{},stage),draftLayer=el('g',{},stage);
+function select(f){if(selected)paths.get(selected.id)?.classList.remove('selected');selected=f;paths.get(f.id)?.classList.add('selected');$('selected').textContent=f.id+' · '+f.kind;$('tags').textContent=JSON.stringify(f.tags,null,2);$('edit').disabled=!(f.geometry.type==='LineString'||(f.geometry.type==='Polygon'&&f.geometry.coordinates.length===1));clearDraft()}
+function clearDraft(){drawing=false;points=[];draft=null;draftLayer.replaceChildren();$('finish').disabled=true;$('cancel').disabled=true;$('save').disabled=true}
+$('edit').onclick=()=>{clearDraft();drawing=true;$('cancel').disabled=false;$('status').textContent='Click new vertices, then Finish redraw.'};
+function position(e){const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());return [p.x,p.y]}
+function showDraft(){draftLayer.replaceChildren();if(points.length)el('path',{d:line(points,selected.geometry.type==='Polygon'&&points.length>2),class:'proposed'},draftLayer);for(const p of points){const [x,y]=xy(p);el('circle',{cx:x,cy:y,r:Math.max(view[2]/400,0.2),fill:'#ffe480','pointer-events':'none'},draftLayer)}}
+$('finish').onclick=()=>{if(!selected)return;const poly=selected.geometry.type==='Polygon';if(points.length<(poly?3:2))return;draft={type:selected.geometry.type,coordinates:poly?[[...points,points[0]]]:points};drawing=false;$('finish').disabled=true;$('save').disabled=false;$('status').textContent='Review the orange proposal and record evidence.'};
+$('cancel').onclick=clearDraft;
+let drag=null,moved=false;
+svg.addEventListener('pointerdown',e=>{moved=false;drag={x:e.clientX,y:e.clientY,view:[...view]};if(drawing)return});
+svg.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>4)moved=true;if(!drawing&&moved){const s=svg.getScreenCTM().a;view=[drag.view[0]-dx/s,drag.view[1]-dy/s,drag.view[2],drag.view[3]];setView()}});
+window.addEventListener('pointerup',()=>drag=null);
+svg.addEventListener('click',e=>{if(!drawing||moved)return;const p=position(e);if(p[0]<0||p[0]>W||p[1]<0||p[1]>H)return;points.push(world(p));showDraft();$('finish').disabled=points.length<(selected.geometry.type==='Polygon'?3:2)});
+svg.addEventListener('wheel',e=>{e.preventDefault();const p=position(e),f=Math.exp(Math.max(-1,Math.min(1,e.deltaY/600)));const nw=Math.max(10,Math.min(W*3,view[2]*f)),r=nw/view[2];view=[p[0]-(p[0]-view[0])*r,p[1]-(p[1]-view[1])*r,nw,view[3]*r];setView()},{passive:false});
+$('reset').onclick=()=>{view=[0,0,W,H];setView()};
+async function loadProposals(){proposals=await(await fetch('/api/proposals')).json();proposedLayer.replaceChildren();$('list').replaceChildren();for(const p of proposals){if(p.source_sha256!==d.source_sha256)continue;el('path',{d:path(p.after),class:'proposed'},proposedLayer);const b=document.createElement('button');b.textContent=p.feature_id+' · '+p.status;b.onclick=()=>{const f=byId.get(p.feature_id);if(f)select(f);$('status').textContent=p.rationale};$('list').append(b)}}
+$('save').onclick=async()=>{try{const response=await fetch('/api/proposals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({feature_id:selected.id,geometry:draft,rationale:$('rationale').value,evidence_notes:$('evidence').value})});const result=await response.json();if(!response.ok)throw Error(result.error||'Save failed');clearDraft();await loadProposals();$('status').textContent='Saved as proposed; review still required.'}catch(e){$('status').textContent=e.message}};
+$('count').textContent=d.features.length+' mapped features · '+d.issues.length+' issues';
+$('metadata').textContent=d.aerial?JSON.stringify({provider:d.aerial.provider,requested_year:d.aerial.requested_year,candidate_years:[...new Set(d.aerial.catalog_candidates.map(c=>c.Year))],observed_at:d.aerial.observed_at,notes:d.aerial.notes},null,2):'No aerial snapshot. Run fetch_aerial.py.';
+$('issues').textContent=JSON.stringify(d.issues.slice(0,50),null,2);await loadProposals()
+})().catch(e=>document.getElementById('status').textContent=e.message)
+</script></html>
