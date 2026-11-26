@@ -35,3 +35,6 @@ py src/build_elevation.py --vertical-datum "NAVD88 Geoid18" --vertical-unit us-f
 py src/analyze_lidar.py --vertical-datum "NAVD88 Geoid18" --vertical-unit us-ft
 ```
 Both scripts now require explicit input Z unit. Convert US survey feet by 1200/3937; output always meters. Do not apply vertical conversion twice. Horizontal reprojection uses horizontal CRS only. Actual download and processing not yet verified.
+
+## Rate-limited downloads
+HTTP 429 is a server throttle. Downloads now pause before each uncached transfer (default 10 seconds), honor Retry-After and use exponential backoff for 429/500/502/503/504. If the server asks for more than --max-wait (default 600 seconds), or retries are exhausted, stop and resume later. Completed files and validated checksums are reused; a partial failed tile is discarded, not byte-resumed. Do not run concurrent batches. For conservative pacing use --interval 30. No alternate host or limit bypass is attempted.
