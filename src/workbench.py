@@ -6,6 +6,7 @@ from threading import Lock
 from shapely.geometry import shape,mapping
 from shapely.ops import transform
 from workbench_data import ROOT,normalize,pilot_extent,TO_WGS
+from building_evidence import load_evidence
 
 def json_bytes(x):return json.dumps(x,allow_nan=False).encode()
 def proposal(feature,geometry,rationale,source,evidence,extent):
@@ -34,6 +35,11 @@ def main():
         if hashlib.sha256((aerial/'pilot.jpg').read_bytes()).hexdigest()!=m.get('sha256'):return None
         return m
     data['aerial']=aerial_manifest()
+    building_dir=ROOT/'data/buildings'
+    data['building_evidence']=None
+    if (building_dir/'overture.geojson').exists() and (building_dir/'manifest.json').exists():
+        try:data['building_evidence']=load_evidence(building_dir/'overture.geojson',building_dir/'manifest.json',data)
+        except (ValueError,OSError,KeyError) as e:data['building_evidence_error']=str(e)
     class Handler(BaseHTTPRequestHandler):
         def reply(self,status,content,ctype='application/json'):
             self.send_response(status);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)

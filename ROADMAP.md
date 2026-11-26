@@ -43,3 +43,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [ ] Identify actual benchmark intersection and compare OSM against independent evidence.
 - [ ] Record reviewed source corrections before attempting sanitization or ground sprite generation.
 - [ ] Render continuous corrected terrain with sampled native physical properties; test exceptions.
+
+- [x] Implement Overture building evidence overlay and heuristic overlap/coverage candidate classification (local acquisition and testing pending).
+- [ ] Review candidate footprints against dated NAIP and independent sources; implement explicit acceptance/addition workflow and source-specific lineage checks.
