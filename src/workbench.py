@@ -40,6 +40,20 @@ def main():
     if (building_dir/'overture.geojson').exists() and (building_dir/'manifest.json').exists():
         try:data['building_evidence']=load_evidence(building_dir/'overture.geojson',building_dir/'manifest.json',data)
         except (ValueError,OSError,KeyError) as e:data['building_evidence_error']=str(e)
+    data['transport_audit']=None
+    audit=ROOT/'output/transport/audit.json'
+    if audit.exists():
+        try:
+            evidence=json.loads(audit.read_text())
+            if evidence['source_sha256']!=data['source_sha256'] or evidence['extent']!=data['extent']:
+                raise ValueError('Audit is stale; rerun transport_audit.py')
+            if evidence.get('aerial_sha256') and (not data['aerial'] or evidence['aerial_sha256']!=data['aerial']['sha256']):
+                raise ValueError('Aerial audit is stale; rerun transport_audit.py')
+            for m in evidence.get('sources',[]):
+                raw=(ROOT/'data/transport'/(m['source']+'.geojson')).read_bytes()
+                if hashlib.sha256(raw).hexdigest()!=m['sha256']:raise ValueError('Transport audit is stale; rerun transport_audit.py')
+            data['transport_audit']=evidence
+        except (OSError,ValueError,KeyError) as e:data['transport_audit_error']=str(e)
     class Handler(BaseHTTPRequestHandler):
         def reply(self,status,content,ctype='application/json'):
             self.send_response(status);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)

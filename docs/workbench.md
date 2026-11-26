@@ -29,3 +29,6 @@ Restart the server and refresh the browser. Overture is an optional download dep
 Cyan = OSM buildings; green = Overture coverage candidates with no OSM footprint within 2 m; orange = nearby/overlap review; gray = high-IoU matches (hidden by default). Spatial comparisons use the fixed metric projection, not Web Mercator units. 0.70 IoU and 2 m proximity are exploratory thresholds; overlapping split/merged buildings require review. Overture incorporates OSM, so matching OSM-derived geometry is not independent evidence. Inspect per-feature sources; verify against NAIP, date and other observations. Roof outlines may differ from wall footprints. No automatic merge or candidate acceptance. Supplementary features are inspect-only. No count should be interpreted as an actual completeness percentage without independent reference.
 
 Source and license: https://docs.overturemaps.org/guides/buildings/ and https://docs.overturemaps.org/attribution/ (ODbL).
+
+## v0.3
+See [transport audit and editable legend](transport-audit.md). Independent road/rail overlays and preliminary discrepancy detection; no automatic edits.

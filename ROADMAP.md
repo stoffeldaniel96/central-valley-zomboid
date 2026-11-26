@@ -46,3 +46,7 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 
 - [x] Implement Overture building evidence overlay and heuristic overlap/coverage candidate classification (local acquisition and testing pending).
 - [ ] Review candidate footprints against dated NAIP and independent sources; implement explicit acceptance/addition workflow and source-specific lineage checks.
+
+- [x] Add editable subtype legend, transport reference acquisition and preliminary vector/image discrepancy diagnostics (implementation; live verification pending).
+- [ ] Calibrate image flags at known intersection; verify registration and semantic source differences.
+- [ ] Implement image semantic masks and road graph connectivity audit; validate true/false positives before applying corrections.

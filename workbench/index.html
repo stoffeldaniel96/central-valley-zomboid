@@ -1,9 +1,9 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central Valley Workbench</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#171a1d;color:#e8e9e8;font:14px system-ui}header{padding:12px 18px;background:#23272b;display:flex;gap:20px;align-items:center}header strong{font-size:19px}main{display:grid;grid-template-columns:220px minmax(300px,1fr) 300px;height:calc(100vh - 54px)}aside{padding:16px;overflow:auto;background:#202428}h3{font-size:14px;margin:16px 0 8px}label{display:block;margin:9px 0}button,input,textarea{font:inherit;color:inherit;background:#31373c;border:1px solid #606971;border-radius:4px;padding:7px}button{cursor:pointer;margin:3px 0}button:disabled{opacity:.5;cursor:default}textarea{width:100%;min-height:70px}a{color:#99cdea}#map{width:100%;height:100%;background:#38413e;touch-action:none}#map path{vector-effect:non-scaling-stroke;stroke-width:1.4;cursor:pointer}#map path.selected{stroke:#ffe480!important;stroke-width:3}#map path.proposed{stroke:#ff9b66;fill:#ff9b6625;stroke-width:2;stroke-dasharray:5 3;pointer-events:none}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}small{color:#acb6ba}#status{color:#e8c47d;overflow-wrap:anywhere}#list{max-height:220px;overflow:auto}#list button{width:100%;text-align:left} @media(max-width:850px){main{grid-template-columns:150px 1fr 220px}}
-</style>
+.legend-row{display:grid;grid-template-columns:20px 26px 1fr;gap:5px;align-items:center;margin:3px 0;font-size:11px}.legend-row input[type=color]{width:26px;height:23px;padding:1px}.legend-row input[type=range]{grid-column:2/4;width:100%;padding:0}.legend-family{margin:8px 0;border-bottom:1px solid #3c4448;padding-bottom:6px}.legend-family summary{cursor:pointer;font-weight:600;font-size:12px}.legend-row small{color:inherit;opacity:.7}#map path.audit{stroke-dasharray:5 3;stroke-width:2.4}</style>
 <header><strong>Central Valley / Workbench</strong><span id="count">Loading pilot…</span><small>Observed geometry · proposals only</small></header>
-<main><aside><h3>Evidence layers</h3><label><input type="checkbox" id="aerialToggle" checked> NAIP aerial</label><label>Image opacity <input id="opacity" type="range" min="0" max="100" value="100"></label><div id="layers"></div><h3>Building coverage</h3><pre id="coverage">No Overture evidence loaded.</pre><small>Supplementary footprints are inspect-only; not accepted buildings.</small><button id="reset">Reset view</button><h3>Source metadata</h3><pre id="metadata"></pre><h3>Normalization issues</h3><pre id="issues"></pre></aside>
+<main><aside><h3>Evidence layers</h3><label><input type="checkbox" id="aerialToggle" checked> NAIP aerial</label><label>Image opacity <input id="opacity" type="range" min="0" max="100" value="100"></label><div id="layers"></div><button id="resetStyles">Reset legend styles</button><h3>Transport audit</h3><pre id="transport">Run transport_audit.py.</pre><h3>Building coverage</h3><pre id="coverage">No Overture evidence loaded.</pre><small>Supplementary footprints are inspect-only; not accepted buildings.</small><button id="reset">Reset view</button><h3>Source metadata</h3><pre id="metadata"></pre><h3>Normalization issues</h3><pre id="issues"></pre></aside>
 <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
 <aside><h3>Feature inspector</h3><p id="selected">Click a mapped feature.</p><pre id="tags"></pre><button id="edit" disabled>Redraw selected geometry</button><button id="finish" disabled>Finish redraw</button><button id="cancel" disabled>Cancel redraw</button><p><small>Scroll to zoom; drag background to pan. Redraw by clicking vertices. Only simple lines and hole-free polygons fully inside the pilot are editable.</small></p><label>Evidence (source/date/observation)<textarea id="evidence"></textarea></label><label>Rationale<textarea id="rationale"></textarea></label><button id="save" disabled>Save proposed correction</button><p id="status"></p><h3>Local proposal history</h3><div id="list"></div><a href="/api/export" download="proposed-corrections.geojson">Export proposed geometry (GeoJSON)</a><p><small>Not approved or applied. No source geometry is overwritten.</small></p></aside></main>
 <script>
@@ -12,11 +12,11 @@ const $=id=>document.getElementById(id),svg=$('map'),ns='http://www.w3.org/2000/
 const res=await fetch('/api/data');if(!res.ok)throw Error('Pilot data unavailable');const d=await res.json();
 const [xmin,ymin,xmax,ymax]=d.extent,W=xmax-xmin,H=ymax-ymin;
 let view=[0,0,W,H],selected=null,drawing=false,points=[],draft=null,proposals=[];
-const groups={},paths=new Map(),allFeatures=[...d.features,...(d.building_evidence?.features||[])],byId=new Map(allFeatures.map(f=>[f.id,f]));
+const groups={},paths=new Map(),allFeatures=[...d.features,...(d.building_evidence?.features||[]),...(d.transport_audit?.features||[])],byId=new Map(allFeatures.map(f=>[f.id,f]));
 const xy=p=>[p[0]-xmin,ymax-p[1]],world=p=>[p[0]+xmin,ymax-p[1]];
 function el(tag,attrs,parent=svg){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.appendChild(e);return e}
 function line(coords,closed=false){return coords.map((p,i)=>(i?'L':'M')+xy(p).join(' ')).join(' ')+(closed?' Z':'')}
-function path(g){if(g.type==='LineString')return line(g.coordinates);if(g.type==='Polygon')return g.coordinates.map(r=>line(r,true)).join(' ');if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p.map(r=>line(r,true))).join(' ');return ''}
+function path(g){if(g.type==='LineString')return line(g.coordinates);if(g.type==='MultiLineString')return g.coordinates.map(r=>line(r)).join(' ');if(g.type==='Polygon')return g.coordinates.map(r=>line(r,true)).join(' ');if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p.map(r=>line(r,true))).join(' ');return ''}
 function setView(){svg.setAttribute('viewBox',view.join(' '))}
 setView();const clip=el('clipPath',{id:'pilotClip'});el('rect',{x:0,y:0,width:W,height:H},clip);
 const stage=el('g',{'clip-path':'url(#pilotClip)'});el('rect',{x:0,y:0,width:W,height:H,fill:'#454e4a'},stage);
@@ -25,10 +25,46 @@ if(d.aerial){const [a,b,c,e]=d.aerial.extent;img=el('image',{href:'/aerial.jpg',
 else $('aerialToggle').disabled=true;
 $('aerialToggle').onchange=()=>{if(img)img.style.display=$('aerialToggle').checked?'':'none'};
 $('opacity').oninput=()=>{if(img)img.style.opacity=$('opacity').value/100};
-const colors={parking:'#cbb8f4',building:'#77e2f3',road:'#ffd16b',rail:'#e9a8a1',overture_matched:'#a1a8ae',overture_coverage_candidate:'#a9ed72',overture_review_overlap:'#ff9b66'};
-const names={building:'OSM buildings',overture_matched:'Overture matched',overture_coverage_candidate:'Overture coverage candidates',overture_review_overlap:'Overture overlap review'};
-for(const k of Object.keys(colors)){groups[k]=el('g',{},stage);const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=k!=='overture_matched';groups[k].style.display=check.checked?'':'none';check.onchange=()=>groups[k].style.display=check.checked?'':'none';label.append(check,' '+(names[k]||k));label.style.color=colors[k];$('layers').append(label)}
-for(const f of allFeatures){const p=el('path',{d:path(f.geometry),stroke:colors[f.kind],fill:f.geometry.type==='LineString'?'none':colors[f.kind]+'22','fill-rule':'evenodd'},groups[f.kind]);paths.set(f.id,p);p.addEventListener('click',e=>{if(drawing||moved)return;e.stopPropagation();select(f)})}
+const palettes={road:'#ffd16b',building:'#77e2f3',parking:'#cbb8f4',rail:'#e9a8a1',overture_matched:'#a1a8ae',overture_coverage_candidate:'#a9ed72',overture_review_overlap:'#ff9b66',reference_road:'#77a9ff',reference_rail:'#db9aff',transport_gap:'#ff404c',transport_disagreement:'#fbc05a',image_alignment:'#ff70df'};
+const familyNames={building:'OSM buildings',road:'OSM roads',rail:'OSM rail',parking:'Parking',overture_matched:'Overture matched',overture_coverage_candidate:'Overture coverage candidates',overture_review_overlap:'Overture overlap review',reference_road:'Caltrans reference',reference_rail:'FRA reference',transport_gap:'Reference outside OSM',transport_disagreement:'OSM outside reference',image_alignment:'Aerial edge shift'};
+const subtypeColors={road:{motorway:'#f59a35',trunk:'#ffad49',primary:'#ffc052',secondary:'#ffd16b',tertiary:'#ffe098',residential:'#ffe7a8',service:'#d6aa67',footway:'#c7b9a2',cycleway:'#e1ca91'},building:{residential:'#77e2f3',commercial:'#49bde4',industrial:'#77b3ff',civic:'#b1eaff',other:'#8ac9d1'},rail:{rail:'#e9a8a1',tram:'#f4c7ad',disused:'#b67c81'}};
+function buildingType(t){
+ const b=String(t.building||t.subtype||t.class||'').toLowerCase();
+ if(t.shop||['retail','commercial','office'].includes(b))return 'commercial';
+ if(['industrial','warehouse','manufacture'].includes(b))return 'industrial';
+ if(['school','hospital','civic','public','church','education','government','religious'].includes(b))return 'civic';
+ if(['house','residential','apartments','detached','semidetached_house','terrace','bungalow'].includes(b))return 'residential';
+ return 'other';
+}
+function shade(hex,sub){const delta={residential:12,commercial:-22,industrial:-10,civic:25,other:0}[sub]||0;return '#'+[1,3,5].map(i=>Math.min(255,Math.max(0,parseInt(hex.slice(i,i+2),16)+delta)).toString(16).padStart(2,'0')).join('')}
+function classify(f){
+ const k=f.kind,t=f.tags||{};let sub='all';
+ if(k==='road')sub=t.highway||'unknown';
+ else if(k==='rail')sub=t.railway||'unknown';
+ else if(k==='parking')sub=t.parking||'unknown';
+ else if(k==='building'||k.startsWith('overture_'))sub=buildingType(t);
+ else if(k==='transport_gap'||k==='transport_disagreement'||k==='image_alignment')sub=t.feature_kind||'unknown';
+ const color=subtypeColors[k]?.[sub]||shade(palettes[k]||'#cccccc',sub);
+ return {key:k+'/'+sub,family:k,sub,color,visible:!['overture_matched','reference_road','reference_rail','transport_disagreement','image_alignment'].includes(k)};
+}
+let preferences={};try{preferences=JSON.parse(localStorage.getItem('cv-legend-v1')||'{}')||{}}catch{}
+const buckets=new Map(),sections=new Map();
+for(const f of allFeatures){const c=classify(f);if(!buckets.has(c.key))buckets.set(c.key,{...c,features:[]});buckets.get(c.key).features.push(f)}
+function persist(){try{localStorage.setItem('cv-legend-v1',JSON.stringify(preferences))}catch{}}
+for(const b of buckets.values()){
+ if(!sections.has(b.family)){const details=document.createElement('details'),summary=document.createElement('summary');details.className='legend-family';details.open=!['overture_matched','reference_road','reference_rail','transport_disagreement','image_alignment'].includes(b.family);summary.textContent=familyNames[b.family]||b.family;details.append(summary);$('layers').append(details);sections.set(b.family,details)}
+ const s=preferences[b.key]||{},color=/^#[0-9a-f]{6}$/i.test(s.color)?s.color:b.color,group=el('g',{},stage);groups[b.key]=group;
+ const row=document.createElement('div');row.className='legend-row';const check=document.createElement('input');check.type='checkbox';check.checked=typeof s.visible==='boolean'?s.visible:b.visible;check.title='Toggle '+b.key;
+ const picker=document.createElement('input');picker.type='color';picker.value=color;picker.title='Color '+b.key;
+ const label=document.createElement('span');label.textContent=b.sub.replaceAll('_',' ')+' ('+b.features.length+')';
+ const opacity=document.createElement('input');opacity.type='range';opacity.min='0';opacity.max='100';opacity.value=Number.isFinite(s.opacity)?Math.max(0,Math.min(100,s.opacity)):100;opacity.title='Opacity '+b.key;
+ row.append(check,picker,label,opacity);sections.get(b.family).append(row);
+ for(const f of b.features){const p=el('path',{d:path(f.geometry),stroke:color,fill:['LineString','MultiLineString'].includes(f.geometry.type)?'none':color+'22','fill-rule':'evenodd'},group);if(f.evidence&&['transport_gap','transport_disagreement','image_alignment'].includes(f.kind))p.classList.add('audit');paths.set(f.id,p);p.addEventListener('click',e=>{if(drawing||moved)return;e.stopPropagation();select(f)})}
+ function update(save){group.style.display=check.checked?'':'none';group.style.opacity=Number(opacity.value)/100;for(const p of group.children){p.setAttribute('stroke',picker.value);if(p.getAttribute('fill')!=='none')p.setAttribute('fill',picker.value+'22')}if(save){preferences[b.key]={color:picker.value,visible:check.checked,opacity:Number(opacity.value)};persist()}}
+ check.onchange=()=>update(true);picker.oninput=()=>update(true);opacity.oninput=()=>update(true);update(false);
+}
+$('resetStyles').onclick=()=>{try{localStorage.removeItem('cv-legend-v1')}catch{};location.reload()};
+
 const proposedLayer=el('g',{},stage),draftLayer=el('g',{},stage);
 function select(f){if(selected)paths.get(selected.id)?.classList.remove('selected');selected=f;paths.get(f.id)?.classList.add('selected');$('selected').textContent=f.id+' · '+f.kind;$('tags').textContent=JSON.stringify(f.evidence?{comparison:f.evidence,properties:f.tags}:f.tags,null,2);$('edit').disabled=!!f.evidence||!(f.geometry.type==='LineString'||(f.geometry.type==='Polygon'&&f.geometry.coordinates.length===1));clearDraft()}
 function clearDraft(){drawing=false;points=[];draft=null;draftLayer.replaceChildren();$('finish').disabled=true;$('cancel').disabled=true;$('save').disabled=true}
@@ -49,6 +85,7 @@ $('save').onclick=async()=>{try{const response=await fetch('/api/proposals',{met
 $('count').textContent=d.features.length+' mapped features · '+d.issues.length+' issues';
 $('metadata').textContent=d.aerial?JSON.stringify({provider:d.aerial.provider,requested_year:d.aerial.requested_year,candidate_years:[...new Set(d.aerial.catalog_candidates.map(c=>c.Year))],observed_at:d.aerial.observed_at,notes:d.aerial.notes},null,2):'No aerial snapshot. Run fetch_aerial.py.';
 $('coverage').textContent=d.building_evidence?JSON.stringify({osm_buildings:d.building_evidence.osm_buildings,overture:d.building_evidence.counts,osm_without_high_iou_match:d.building_evidence.osm_without_high_iou_match,notes:d.building_evidence.notes},null,2):(d.building_evidence_error||'Run fetch_buildings.py to load Overture.');
-$('issues').textContent=JSON.stringify([...d.issues,...(d.building_evidence?.issues||[])].slice(0,50),null,2);await loadProposals()
+$('transport').textContent=d.transport_audit?JSON.stringify({counts:d.transport_audit.counts,image_windows_tested:d.transport_audit.image_windows_tested,notes:d.transport_audit.notes},null,2):(d.transport_audit_error||'Run fetch_transport.py and transport_audit.py.');
+$('issues').textContent=JSON.stringify([...d.issues,...(d.building_evidence?.issues||[]),...(d.transport_audit?.issues||[])].slice(0,50),null,2);await loadProposals()
 })().catch(e=>document.getElementById('status').textContent=e.message)
 </script></html>
