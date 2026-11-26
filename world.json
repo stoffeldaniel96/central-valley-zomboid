@@ -1,0 +1,17 @@
+{
+  "name": "Central Valley",
+  "mod_id": "CentralValley",
+  "target_build": 42,
+  "meters_per_tile": 1,
+  "cell_tiles": 256,
+  "projection": "+proj=aeqd +lat_0=37.4947 +lon_0=-120.8466 +datum=WGS84 +units=m +no_defs",
+  "requested_bbox": [
+    -121.13,
+    37.25,
+    -120.39,
+    37.74
+  ],
+  "geography": "modern",
+  "material_culture_year": 1993,
+  "seed": 1993
+}

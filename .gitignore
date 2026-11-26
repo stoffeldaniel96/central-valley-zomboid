@@ -1,0 +1,9 @@
+/output/
+/data/*
+!/data/README.md
+/build/
+/dist/
+__pycache__/
+*.py[cod]
+.venv/
+.env

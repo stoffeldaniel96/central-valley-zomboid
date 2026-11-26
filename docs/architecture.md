@@ -1,0 +1,6 @@
+# Architecture
+Fixed local azimuthal equidistant projection anchored at downtown Turlock. Signed global cells, x east and y south; half-open cell bounds. Sector IDs anchored at multiples of 16 cells. Engine translation is provisional and must be frozen before production. Statewide distortion and negative engine coordinates require testing. The current cell size and 1 m/tile are target assumptions pending compiler verification.
+
+Pipeline: dated OSM source → normalized geographic features → terrain and buildings → period dressing → persistent overrides → compiler → validation. Keep source data independent of compiler. For regional acquisition use a dated Geofabrik Northern California PBF, not bulk public Overpass queries. Preserve source hashes, settings, versions and attribution. Stable feature IDs and seed 1993 are intended for deterministic generation; not verified.
+
+Preserve modern roads, building footprints, land use, waterways and functions. Generate plausible interiors, period signage, vehicles, appliances and furnishings. California-specific regional assets should be reusable. Manual overrides must survive regeneration. No seamless export stitching or automated compiler adapter yet.
