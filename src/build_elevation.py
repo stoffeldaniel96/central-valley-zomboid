@@ -7,6 +7,7 @@ from pyproj import CRS,Transformer
 from workbench_data import ROOT
 from imagery_registry import register
 from fetch_elevation import sha
+from vertical_units import FACTORS,factor,check_unit
 
 def grid_spec(resolution):
     c=json.loads((ROOT/'world.json').read_text());x0,y0,x1,y1=json.loads((ROOT/'output/stats.json').read_text())['pilot_cells']
@@ -49,6 +50,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--dem',nargs='+',type=Path,help='Explicit DEM files; otherwise use downloaded OPR files')
     p.add_argument('--resolution',type=float,default=.5)
     p.add_argument('--vertical-datum',required=True,help='Verified common source vertical datum, e.g. NAVD88 (Geoid18)')
+    p.add_argument('--vertical-unit',choices=FACTORS,required=True,help='Verified input Z unit; all output elevations are meters')
     a=p.parse_args()
     if not math.isfinite(a.resolution) or a.resolution<=0:p.error('Invalid resolution')
     import rasterio
@@ -62,18 +64,23 @@ def main():
         with rasterio.open(path) as ds:
             if not ds.crs or ds.count!=1:raise ValueError('Expected single-band georeferenced DEM')
             # Explicit operator datum/unit check; never infer elevations from XY CRS.
-            if ds.units[0] and str(ds.units[0]).lower() not in ('m','meter','metre','meters','metres'):raise ValueError('Non-meter vertical units: '+str(ds.units))
-            source=ds.read(1,masked=True).astype('float32').filled(np.nan)
+            check_unit(ds.units[0],a.vertical_unit)
+            source_crs=CRS.from_user_input(ds.crs)
+            if source_crs.is_compound:
+                vertical=source_crs.sub_crs_list[-1]
+                if vertical.is_vertical and vertical.axis_info:check_unit(vertical.axis_info[0].unit_name,a.vertical_unit)
+                source_crs=source_crs.sub_crs_list[0]
+            source=ds.read(1,masked=True).astype('float32').filled(np.nan)*factor(a.vertical_unit)
             v=np.full_like(z,np.nan)
-            reproject(source,v,src_transform=ds.transform,src_crs=ds.crs,src_nodata=np.nan,dst_transform=affine,dst_crs=crs,dst_nodata=np.nan,resampling=Resampling.bilinear)
+            reproject(source,v,src_transform=ds.transform,src_crs=source_crs,src_nodata=np.nan,dst_transform=affine,dst_crs=crs,dst_nodata=np.nan,resampling=Resampling.bilinear)
             overlap=np.isfinite(z)&np.isfinite(v);conflicts+=int(np.count_nonzero(overlap & (np.abs(z-v)>.25)))
             take=~np.isfinite(z)&np.isfinite(v);z[take]=v[take]
-            sources.append({'file':path.name,'sha256':sha(path),'crs':str(ds.crs),'source_resolution':list(ds.res),'source_units':ds.units,'covered_cells':int(np.isfinite(v).sum())})
+            sources.append({'file':path.name,'sha256':sha(path),'crs':str(ds.crs),'source_resolution':list(ds.res),'source_units':ds.units,'selected_vertical_unit':a.vertical_unit,'vertical_scale_to_m':factor(a.vertical_unit),'covered_cells':int(np.isfinite(v).sum())})
     summary=stats(z)
     if not summary['valid_fraction']:raise ValueError('No DEM coverage in pilot')
     out=ROOT/'output/elevation';out.mkdir(parents=True,exist_ok=True)
     np.save(out/'ground.npy',z,allow_pickle=False)
-    meta={'crs_wkt':crs.to_wkt(),'bounds_east_north_m':bounds,'shape':[h,w],'resolution_m':a.resolution,'vertical_datum':a.vertical_datum,'vertical_units':'m (operator verified)','sources':sources,'ground_sha256':sha(out/'ground.npy'),'overlap_disagreements_over_0_25m':conflicts,'overlap_policy':'first valid source wins; conflicts counted for review','stats':summary,'notes':'Bare-earth only. NaN means unknown; no fabricated elevation. Grid interval is not source accuracy. North-up rows.'}
+    meta={'crs_wkt':crs.to_wkt(),'bounds_east_north_m':bounds,'shape':[h,w],'resolution_m':a.resolution,'vertical_datum':a.vertical_datum,'vertical_units':'m','input_vertical_unit':a.vertical_unit,'sources':sources,'ground_sha256':sha(out/'ground.npy'),'overlap_disagreements_over_0_25m':conflicts,'overlap_policy':'first valid source wins; conflicts counted for review','stats':summary,'notes':'Bare-earth only. NaN means unknown; no fabricated elevation. Grid interval is not source accuracy. North-up rows.'}
     meta['display_layer_id']=display_layer(z,crs,bounds,a.resolution,'3DEP bare-earth elevation',{'vertical_datum':a.vertical_datum,'stats':summary})['id']
     (out/'ground.json').write_text(json.dumps(meta,indent=2));print(json.dumps({k:v for k,v in meta.items() if k!='crs_wkt'},indent=2))
 if __name__=='__main__':main()
