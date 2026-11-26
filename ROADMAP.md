@@ -35,3 +35,11 @@ Parallel research is encouraged; gates are evidence-based, not deadlines. No fab
 | 12 | Ecosystem interoperability | Versioned native, Viewpoint and alternative renderer capability matrix; investigate shared interfaces and upstream plans |
 
 G0 implementation begins with read-only local asset and OSM geometry diagnostics. Their output is evidence, not a completed semantic reconstruction. See docs/first-deliverable.md.
+
+## G0 pilot follow-up
+- [x] User verified acquisition and orientation analysis (29,322 raw segments, no missing node references, nine omitted relations).
+- [x] Implement default clipping to pilot extent; local/CI regression run pending.
+- [ ] Acquire independently dated aerial reference and inspect co-registration.
+- [ ] Identify actual benchmark intersection and compare OSM against independent evidence.
+- [ ] Record reviewed source corrections before attempting sanitization or ground sprite generation.
+- [ ] Render continuous corrected terrain with sampled native physical properties; test exceptions.

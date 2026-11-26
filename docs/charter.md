@@ -16,3 +16,6 @@ Measure geographic, physical, functional, architectural, environmental, infrastr
 
 ## Chronology and vertical fidelity
 Use modern 2026 geography, a provisional pre-2008 institutional/commercial reference cutoff, and 1993 material culture. These are independent layers, not a historically exact single year or a fixed outbreak date. Track anachronisms in institutions, population, infrastructure, economic functions and materials; retain modern geometry unless explicitly overridden. Terrain elevation, grades, embankments, bridges and vertically overlapping routes are physical fidelity requirements. Prefer interoperable shared extensions over a private engine fork.
+
+## Least mechanical intervention and source corroboration
+Maximize fidelity where it has minimal mechanical impact. Prefer continuous visual ground geometry with native point/coverage-sampled physical classifications where safe. Raised curbs, water barriers, steep slopes and other physical exceptions require actual gameplay tests. Reconcile evidence per property before sanitizing geometry; no source is globally authoritative. Maintain immutable snapshots and record corrections separately from representational compromises. Rendering detail is not evidence of measurement accuracy.

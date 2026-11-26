@@ -21,5 +21,11 @@
   "institutional_reference_latest_year": 2007,
   "outbreak_year": null,
   "elevation": "continuous terrain plus independently elevated structures",
-  "interop": "shared interfaces; avoid mandatory forks"
+  "interop": "shared interfaces; avoid mandatory forks",
+  "geometry_policy": {
+    "principle": "least mechanical intervention",
+    "terrain": "continuous visual geometry; native point/coverage-sampled gameplay properties where safe",
+    "structure": "constrained octilinear target; preserve original reference and flag exceptions",
+    "reconciliation": "property-specific evidence before sanitization; no universal source priority"
+  }
 }

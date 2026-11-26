@@ -21,7 +21,23 @@ def classify(tags):
     if 'railway' in tags: return 'rail'
     return None
 
-def analyze(path,projection,bin_m=256):
+def clip_segment(x,y,u,v,bounds):
+    """Liang-Barsky clipping in projected east/north meters."""
+    if bounds is None: return x,y,u,v
+    xmin,ymin,xmax,ymax=bounds
+    dx,dy=u-x,v-y
+    lo,hi=0.,1.
+    for p,q in ((-dx,x-xmin),(dx,xmax-x),(-dy,y-ymin),(dy,ymax-y)):
+        if p==0:
+            if q<0:return None
+            continue
+        t=q/p
+        if p<0:lo=max(lo,t)
+        else:hi=min(hi,t)
+        if lo>hi:return None
+    return x+lo*dx,y+lo*dy,x+hi*dx,y+hi*dy
+
+def analyze(path,projection,bin_m=256,bounds=None):
     transform=Transformer.from_crs(4326,CRS.from_proj4(projection),always_xy=True)
     root=ET.parse(path).getroot()
     if root.tag!='osm' or root.find('remark') is not None: raise ValueError('Invalid or incomplete OSM XML')
@@ -35,6 +51,9 @@ def analyze(path,projection,bin_m=256):
         for i,(a,b) in enumerate(zip(refs,refs[1:])):
             if a not in nodes or b not in nodes: missing+=1; continue
             x,y=nodes[a]; u,v=nodes[b]
+            clipped=clip_segment(x,y,u,v,bounds)
+            if clipped is None:continue
+            x,y,u,v=clipped
             length,angle,d4,d8=metrics(u-x,v-y)
             if length==0: continue
             drift=length*math.sin(math.radians(d8))
@@ -58,15 +77,21 @@ def write_csv(path,header,rows):
         w=csv.writer(f);w.writerow(header);w.writerows(rows)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--osm',type=Path,default=ROOT/'data/pilot.osm');p.add_argument('--out',type=Path,default=ROOT/'output/geometry');p.add_argument('--bin-m',type=int,default=256);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--osm',type=Path,default=ROOT/'data/pilot.osm');p.add_argument('--out',type=Path,default=ROOT/'output/geometry');p.add_argument('--bin-m',type=int,default=256);p.add_argument('--unclipped',action='store_true',help='Analyze complete returned ways rather than pilot extent');a=p.parse_args()
     if a.bin_m<=0:p.error('bin size must be positive')
     projection=json.loads((ROOT/'world.json').read_text())['projection']
-    rows,bins,hist,missing,relations=analyze(a.osm,projection,a.bin_m)
+    bounds=None
+    if not a.unclipped:
+        stats=json.loads((ROOT/'output/stats.json').read_text())
+        x0,y0,x1,y1=stats['pilot_cells']
+        cell=json.loads((ROOT/'world.json').read_text())['cell_tiles']
+        bounds=[x0*cell,-y1*cell,x1*cell,-y0*cell]
+    rows,bins,hist,missing,relations=analyze(a.osm,projection,a.bin_m,bounds)
     a.out.mkdir(parents=True,exist_ok=True)
     write_csv(a.out/'segments.csv',['way_id','segment','kind','length_m','bearing_axis_deg','cardinal_error_deg','octilinear_error_deg','fixed_start_lateral_m','x0_east','y0_north','x1_east','y1_north'],rows)
     write_csv(a.out/'heatmap.csv',['kind','x_bin','south_bin','length_m','mean_cardinal_error','mean_octilinear_error','octilinear_within_5deg_fraction','cardinal_within_5deg_fraction'],([*k,z[0],z[1]/z[0],z[2]/z[0],z[3]/z[0],z[4]/z[0]] for k,z in sorted(bins.items())))
     write_csv(a.out/'histogram.csv',['kind','bearing_axis_bin_deg','length_m'],([*k,v] for k,v in sorted(hist.items())))
-    summary={'source_sha256':hashlib.sha256(a.osm.read_bytes()).hexdigest(),'projection':projection,'bin_m':a.bin_m,'segments':len(rows),'missing_node_segments':missing,'relations_not_analyzed':relations,'status':'diagnostic_only','notes':['Ways only; no multipolygon relation assembly, source reconciliation or snapping.','Five degree tolerance is exploratory; fixed-start lateral displacement is not a topology-preserving snap cost.','Input extent may include padding.']}
+    summary={'source_sha256':hashlib.sha256(a.osm.read_bytes()).hexdigest(),'projection':projection,'bin_m':a.bin_m,'bounds_projected_east_north_m':bounds,'segments':len(rows),'missing_node_segments':missing,'relations_not_analyzed':relations,'status':'diagnostic_only','notes':['Ways only; no multipolygon relation assembly, source reconciliation or snapping.','Five degree tolerance is exploratory; fixed-start lateral displacement is not a topology-preserving snap cost.','Clipped to pilot by default; --unclipped includes complete returned ways. Snap displacement uses clipped segment lengths, not network constraints.']}
     (a.out/'summary.json').write_text(json.dumps(summary,indent=2));print(json.dumps(summary,indent=2))
 
 if __name__=='__main__':main()

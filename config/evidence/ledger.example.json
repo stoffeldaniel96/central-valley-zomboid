@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "illustrative_only": true,
+  "source_snapshots": [
+    {
+      "id": "example-independent-survey",
+      "provider": "Example only",
+      "observed_at": null,
+      "license": null,
+      "rights_review": "pending",
+      "horizontal_accuracy_m": null,
+      "resolution_m": null,
+      "sha256": null,
+      "lineage": []
+    }
+  ],
+  "corrections": [
+    {
+      "id": "example-median-width",
+      "feature_id": "unassigned",
+      "property": "median.width_m",
+      "before": null,
+      "after": null,
+      "evidence_ids": [
+        "example-independent-survey"
+      ],
+      "status": "proposed",
+      "rationale": "Compare mapped median polygon with independently verified physical curb boundaries.",
+      "uncertainty_m": null,
+      "reviewer": null
+    }
+  ]
+}
