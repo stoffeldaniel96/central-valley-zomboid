@@ -7,6 +7,8 @@ from shapely.geometry import shape,mapping
 from shapely.ops import transform
 from workbench_data import ROOT,normalize,pilot_extent,TO_WGS
 from building_evidence import load_evidence
+from benchmark_export import capture
+from urllib.parse import urlsplit,parse_qs
 
 def json_bytes(x):return json.dumps(x,allow_nan=False).encode()
 def proposal(feature,geometry,rationale,source,evidence,extent):
@@ -59,6 +61,13 @@ def main():
             self.send_response(status);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)
         def do_GET(self):
             if self.path=='/':self.reply(200,(ROOT/'workbench/index.html').read_bytes(),'text/html; charset=utf-8')
+            elif urlsplit(self.path).path=='/api/benchmark':
+                try:
+                    params=parse_qs(urlsplit(self.path).query)
+                    bounds=[float(x) for x in params['bbox'][0].split(',')]
+                    raw=capture(data,bounds,aerial/'pilot.jpg')
+                    self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Disposition','attachment; filename="intersection-benchmark.zip"');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
+                except (ValueError,KeyError,OSError) as e:self.reply(400,json_bytes({'error':str(e)}))
             elif self.path=='/api/data':self.reply(200,json_bytes(data))
             elif self.path=='/api/proposals':
                 with lock:self.reply(200,json_bytes(read_ledger()))

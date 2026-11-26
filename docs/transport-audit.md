@@ -23,3 +23,8 @@ Future: semantic segmentation (road surface, track/ballast, painted vs physical 
 
 ## Benchmark
 Use the screenshot intersection as candidate B01; exact coordinates not yet known. Zoom and inspect the red reference gaps and optional magenta image-shift segments. Compare against aerial and additional survey sources, log true/false positive labels and cause. No live dataset or browser test at commit time.
+
+## Intersection calibration export
+Zoom to the candidate intersection and click Export current view evidence. The ZIP contains actual projected view bounds, full intersecting OSM/Overture/reference/audit geometries, source metadata, and an original-pixel-grid aerial crop with georeferenced extent. Includes a contextual margin of 40 Web Mercator units. No new source queries or geometry edits. Share the ZIP for local calibration; do not publish source material without rights review.
+
+Classify flags into representation mismatch (single corridor vs separate carriageways), positional discrepancy, genuinely missing feature, topology discrepancy, stale observation, or unresolved. Screenshot red gaps alone cannot distinguish them. Compare road surfaces and railway track centerlines separately from road-network abstractions. Establish labeled examples before changing thresholds. Export implementation and tests not yet verified in browser.
