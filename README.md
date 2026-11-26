@@ -1,13 +1,23 @@
 # Central Valley
-Standalone Project Zomboid Build 42 world: modern Modesto–Turlock–Merced geography, 1993 material culture, 1 meter per tile. Long-term ambition: California.
 
-## Windows quick start
+A geographically faithful, 1:1 Project Zomboid Build 42 world. **Central Valley: Turlock** is the first finished product; Modesto–Merced and eventually California are expansion ambitions, not initial release scope.
+
+Modern geography, 1993 material culture. Minimum final visual target: comparable to Google Earth 3D, with functional, explorable environments. Physical and gameplay fidelity precede artistic polish. Native compatibility is strongly preferred, not mandatory.
+
+## Start here
+- [Project charter](docs/charter.md)
+- [Architecture](docs/architecture.md)
+- [Research and delivery roadmap](ROADMAP.md)
+- [ADR-001: KnoxMap disposition](docs/decisions/001-knoxmap.md)
+- [Benchmark protocol](docs/benchmarks.md)
+
+## Existing experimental tools
 ```powershell
 py -m pip install -r requirements.txt
 py src/build_index.py
 py -m unittest discover -s tests
 py src/fetch_pilot.py
 ```
-Install [KnoxMap](https://github.com/spytheeuclidean-a11y/knoxmap/releases) separately. Select the pilot bbox in output/stats.json, 1 m/tile, and test a standalone export. The downloaded OSM is reference data, not a verified KnoxMap input. Record compiler and game versions. Do not stitch exports until alignment is verified.
+These index the **future regional envelope**, not the first release boundary, and acquire a small OSM pilot. KnoxMap is optional; see docs/compiler.md and docs/presets.md for legacy baseline experiments. No production world generator or verified playable release exists yet. The existing projected origin and sector IDs remain stable; first release boundary is TBD.
 
-See ROADMAP.md and docs/architecture.md. No playable mod compiled yet. OSM data © OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright.
+Keep source snapshots, licensed reference imagery and compiled artifacts out of Git. Map data © OpenStreetMap contributors, ODbL: https://www.openstreetmap.org/copyright.

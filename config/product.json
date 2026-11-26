@@ -1,0 +1,20 @@
+{
+  "project": "Central Valley",
+  "first_product": "Central Valley: Turlock",
+  "release_boundary": null,
+  "release_boundary_status": "TBD; future regional envelope is not release scope",
+  "future_region_config": "world.json",
+  "scale_m_per_native_tile": 1,
+  "geography": "modern",
+  "material_culture_year": 1993,
+  "visual_minimum": "Google Earth 3D-equivalent final visual fidelity",
+  "production_priority": "physical and functional graybox before graphical polish",
+  "native_compatibility": "preferred_not_required",
+  "structure_direction_step_deg": 45,
+  "terrain_angle_mode": "continuous",
+  "subtile_trial_m": [
+    0.25,
+    0.125
+  ],
+  "knoxmap": "optional_baseline_and_candidate_native_backend"
+}
