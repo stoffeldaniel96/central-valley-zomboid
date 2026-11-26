@@ -3,7 +3,7 @@
 *{box-sizing:border-box}body{margin:0;background:#171a1d;color:#e8e9e8;font:14px system-ui}header{padding:12px 18px;background:#23272b;display:flex;gap:20px;align-items:center}header strong{font-size:19px}main{display:grid;grid-template-columns:220px minmax(300px,1fr) 300px;height:calc(100vh - 54px)}aside{padding:16px;overflow:auto;background:#202428}h3{font-size:14px;margin:16px 0 8px}label{display:block;margin:9px 0}button,input,textarea{font:inherit;color:inherit;background:#31373c;border:1px solid #606971;border-radius:4px;padding:7px}button{cursor:pointer;margin:3px 0}button:disabled{opacity:.5;cursor:default}textarea{width:100%;min-height:70px}a{color:#99cdea}#map{width:100%;height:100%;background:#38413e;touch-action:none}#map path{vector-effect:non-scaling-stroke;stroke-width:1.4;cursor:pointer}#map path.selected{stroke:#ffe480!important;stroke-width:3}#map path.proposed{stroke:#ff9b66;fill:#ff9b6625;stroke-width:2;stroke-dasharray:5 3;pointer-events:none}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}small{color:#acb6ba}#status{color:#e8c47d;overflow-wrap:anywhere}#list{max-height:220px;overflow:auto}#list button{width:100%;text-align:left} @media(max-width:850px){main{grid-template-columns:150px 1fr 220px}}
 .legend-row{display:grid;grid-template-columns:20px 26px 1fr;gap:5px;align-items:center;margin:3px 0;font-size:11px}.legend-row input[type=color]{width:26px;height:23px;padding:1px}.legend-row input[type=range]{grid-column:2/4;width:100%;padding:0}.legend-family{margin:8px 0;border-bottom:1px solid #3c4448;padding-bottom:6px}.legend-family summary{cursor:pointer;font-weight:600;font-size:12px}.legend-row small{color:inherit;opacity:.7}#map path.audit{stroke-dasharray:5 3;stroke-width:2.4}</style>
 <header><strong>Central Valley / Workbench</strong><span id="count">Loading pilot…</span><small>Observed geometry · proposals only</small></header>
-<main><aside><h3>Evidence layers</h3><label><input type="checkbox" id="aerialToggle" checked> NAIP aerial</label><label>Image opacity <input id="opacity" type="range" min="0" max="100" value="100"></label><div id="layers"></div><button id="resetStyles">Reset legend styles</button><h3>Transport audit</h3><pre id="transport">Run transport_audit.py.</pre><h3>Building coverage</h3><pre id="coverage">No Overture evidence loaded.</pre><small>Supplementary footprints are inspect-only; not accepted buildings.</small><button id="reset">Reset view</button><button id="capture">Export current view evidence</button><small>Downloads local geometry, audit flags and georeferenced aerial crop for benchmark review.</small><h3>Source metadata</h3><pre id="metadata"></pre><h3>Normalization issues</h3><pre id="issues"></pre></aside>
+<main><aside><h3>Evidence layers</h3><label><input type="checkbox" id="aerialToggle" checked> NAIP aerial</label><label>Image opacity <input id="opacity" type="range" min="0" max="100" value="100"></label><h3>Additional imagery</h3><label>Snapshot<select id="imagerySelect" style="width:100%;background:#31373c;color:inherit"><option value="">None (NAIP baseline)</option></select></label><label>Overlay opacity <input id="imageryOpacity" type="range" min="0" max="100" value="100"></label><pre id="imageryInfo"></pre><div id="layers"></div><button id="resetStyles">Reset legend styles</button><h3>Transport audit</h3><pre id="transport">Run transport_audit.py.</pre><h3>Building coverage</h3><pre id="coverage">No Overture evidence loaded.</pre><small>Supplementary footprints are inspect-only; not accepted buildings.</small><button id="reset">Reset view</button><button id="capture">Export current view evidence</button><small>Downloads local geometry, audit flags and georeferenced aerial crop for benchmark review.</small><h3>Source metadata</h3><pre id="metadata"></pre><h3>Normalization issues</h3><pre id="issues"></pre></aside>
 <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
 <aside><h3>Feature inspector</h3><p id="selected">Click a mapped feature.</p><pre id="tags"></pre><button id="edit" disabled>Redraw selected geometry</button><button id="finish" disabled>Finish redraw</button><button id="cancel" disabled>Cancel redraw</button><p><small>Scroll to zoom; drag background to pan. Redraw by clicking vertices. Only simple lines and hole-free polygons fully inside the pilot are editable.</small></p><label>Evidence (source/date/observation)<textarea id="evidence"></textarea></label><label>Rationale<textarea id="rationale"></textarea></label><button id="save" disabled>Save proposed correction</button><p id="status"></p><h3>Local proposal history</h3><div id="list"></div><a href="/api/export" download="proposed-corrections.geojson">Export proposed geometry (GeoJSON)</a><p><small>Not approved or applied. No source geometry is overwritten.</small></p></aside></main>
 <script>
@@ -17,7 +17,8 @@ const xy=p=>[p[0]-xmin,ymax-p[1]],world=p=>[p[0]+xmin,ymax-p[1]];
 function el(tag,attrs,parent=svg){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);parent.appendChild(e);return e}
 function line(coords,closed=false){return coords.map((p,i)=>(i?'L':'M')+xy(p).join(' ')).join(' ')+(closed?' Z':'')}
 function path(g){if(g.type==='LineString')return line(g.coordinates);if(g.type==='MultiLineString')return g.coordinates.map(r=>line(r)).join(' ');if(g.type==='Polygon')return g.coordinates.map(r=>line(r,true)).join(' ');if(g.type==='MultiPolygon')return g.coordinates.flatMap(p=>p.map(r=>line(r,true))).join(' ');return ''}
-function setView(){svg.setAttribute('viewBox',view.join(' '))}
+function setView(){svg.setAttribute('viewBox',view.join(' '));queueImagery()}
+let imageryTimer=null,imageryGroup=null,activeImagery=null;
 setView();const clip=el('clipPath',{id:'pilotClip'});el('rect',{x:0,y:0,width:W,height:H},clip);
 const stage=el('g',{'clip-path':'url(#pilotClip)'});el('rect',{x:0,y:0,width:W,height:H,fill:'#454e4a'},stage);
 let img;
@@ -25,6 +26,38 @@ if(d.aerial){const [a,b,c,e]=d.aerial.extent;img=el('image',{href:'/aerial.jpg',
 else $('aerialToggle').disabled=true;
 $('aerialToggle').onchange=()=>{if(img)img.style.display=$('aerialToggle').checked?'':'none'};
 $('opacity').oninput=()=>{if(img)img.style.opacity=$('opacity').value/100};
+imageryGroup=el('g',{'pointer-events':'none'},stage);
+for(const m of d.imagery_layers||[]){const option=document.createElement('option');option.value=m.id;option.textContent=m.provider+' · '+(m.observed_at||'date unknown');$('imagerySelect').append(option)}
+$('imagerySelect').onchange=()=>{
+ activeImagery=(d.imagery_layers||[]).find(m=>m.id===$('imagerySelect').value)||null;
+ $('imageryInfo').textContent=activeImagery?JSON.stringify({usage:activeImagery.usage,registration:activeImagery.registration,dimensions:[activeImagery.width,activeImagery.height],native_gsd_m:activeImagery.native_gsd_m,rights:activeImagery.rights_note||'Not reviewed',note:'Additional imagery is display-only in this version.'},null,2):'';
+ queueImagery();
+};
+$('imageryOpacity').oninput=()=>imageryGroup.style.opacity=Number($('imageryOpacity').value)/100;
+function queueImagery(){clearTimeout(imageryTimer);imageryTimer=setTimeout(renderImagery,80)}
+function renderImagery(){
+ if(!imageryGroup)return;
+ const m=activeImagery;
+ if(!m){imageryGroup.replaceChildren();return}
+ const [a,b,c,e]=m.extent,x0=a-xmin,y0=ymax-e,iw=c-a,ih=e-b;
+ const [vx,vy,vw,vh]=view,scale=svg.getScreenCTM()?.a||1;
+ const projectedPerScreenPixel=1/Math.max(scale,1e-9);
+ let l=m.levels[0];
+ for(const candidate of m.levels){if(Math.max(iw/candidate.width,ih/candidate.height)<=projectedPerScreenPixel*1.3)l=candidate}
+ const sx=iw/l.width,sy=ih/l.height,t=m.tile_size;
+ const xStart=Math.max(0,Math.floor((vx-x0)/(t*sx))),xEnd=Math.min(l.cols,Math.ceil((vx+vw-x0)/(t*sx)));
+ const yStart=Math.max(0,Math.floor((vy-y0)/(t*sy))),yEnd=Math.min(l.rows,Math.ceil((vy+vh-y0)/(t*sy)));
+ const wanted=new Set();
+ for(let y=yStart;y<yEnd;y++)for(let x=xStart;x<xEnd;x++){
+  const key=m.id+'/'+l.level+'/'+x+'/'+y;wanted.add(key);
+  if([...imageryGroup.children].some(n=>n.dataset.key===key))continue;
+  const href='/api/imagery/tile?'+new URLSearchParams({id:m.id,level:l.level,x,y});
+  const node=el('image',{href,x:x0+x*t*sx,y:y0+y*t*sy,width:Math.min(t,l.width-x*t)*sx,height:Math.min(t,l.height-y*t)*sy,preserveAspectRatio:'none'},imageryGroup);node.dataset.key=key;
+ }
+ for(const n of [...imageryGroup.children])if(!wanted.has(n.dataset.key))n.remove();
+}
+window.addEventListener('resize',queueImagery);
+
 const palettes={road:'#ffd16b',building:'#77e2f3',parking:'#cbb8f4',rail:'#e9a8a1',overture_matched:'#a1a8ae',overture_coverage_candidate:'#a9ed72',overture_review_overlap:'#ff9b66',reference_road:'#77a9ff',reference_rail:'#db9aff',transport_gap:'#ff404c',transport_disagreement:'#fbc05a',image_alignment:'#ff70df'};
 const familyNames={building:'OSM buildings',road:'OSM roads',rail:'OSM rail',parking:'Parking',overture_matched:'Overture matched',overture_coverage_candidate:'Overture coverage candidates',overture_review_overlap:'Overture overlap review',reference_road:'Caltrans reference',reference_rail:'FRA reference',transport_gap:'Reference outside OSM',transport_disagreement:'OSM outside reference',image_alignment:'Aerial edge shift'};
 const subtypeColors={road:{motorway:'#f59a35',trunk:'#ffad49',primary:'#ffc052',secondary:'#ffd16b',tertiary:'#ffe098',residential:'#ffe7a8',service:'#d6aa67',footway:'#c7b9a2',cycleway:'#e1ca91'},building:{residential:'#77e2f3',commercial:'#49bde4',industrial:'#77b3ff',civic:'#b1eaff',other:'#8ac9d1'},rail:{rail:'#e9a8a1',tram:'#f4c7ad',disused:'#b67c81'}};
@@ -83,6 +116,7 @@ $('reset').onclick=()=>{view=[0,0,W,H];setView()};
 $('capture').onclick=async()=>{
  try{
   const [x,y,w,h]=view;
+  if(activeImagery&&!confirm('Benchmark export includes the original NAIP baseline only, not the selected additional imagery. Continue?'))return;
   const bounds=[xmin+x,ymax-y-h,xmin+x+w,ymax-y];
   const response=await fetch('/api/benchmark?bbox='+encodeURIComponent(bounds.join(',')));
   if(!response.ok){const e=await response.json();throw Error(e.error||'Export failed')}

@@ -32,3 +32,6 @@ Source and license: https://docs.overturemaps.org/guides/buildings/ and https://
 
 ## v0.3
 See [transport audit and editable legend](transport-audit.md). Independent road/rail overlays and preliminary discrepancy detection; no automatic edits.
+
+## Imagery registry
+See [imagery catalog and import](imagery.md) for additional georeferenced imagery layers and zoom-dependent tiles.

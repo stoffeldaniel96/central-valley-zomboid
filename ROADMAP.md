@@ -50,3 +50,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [x] Add editable subtype legend, transport reference acquisition and preliminary vector/image discrepancy diagnostics (implementation; live verification pending).
 - [ ] Calibrate image flags at known intersection; verify registration and semantic source differences.
 - [ ] Implement image semantic masks and road graph connectivity audit; validate true/false positives before applying corrections.
+
+- [x] Implement independent imagery registry, display tile pyramid, local import and NAIP Plus catalog probe (verification pending).
+- [ ] Verify local high-resolution coverage and reuse terms; calibrate alignment and semantic segmentation using actual benchmark evidence.

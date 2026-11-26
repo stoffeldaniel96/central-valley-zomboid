@@ -8,6 +8,7 @@ from shapely.ops import transform
 from workbench_data import ROOT,normalize,pilot_extent,TO_WGS
 from building_evidence import load_evidence
 from benchmark_export import capture
+from imagery_registry import list_layers,tile_path
 from urllib.parse import urlsplit,parse_qs
 
 def json_bytes(x):return json.dumps(x,allow_nan=False).encode()
@@ -37,6 +38,7 @@ def main():
         if hashlib.sha256((aerial/'pilot.jpg').read_bytes()).hexdigest()!=m.get('sha256'):return None
         return m
     data['aerial']=aerial_manifest()
+    data['imagery_layers']=list_layers()
     building_dir=ROOT/'data/buildings'
     data['building_evidence']=None
     if (building_dir/'overture.geojson').exists() and (building_dir/'manifest.json').exists():
@@ -68,6 +70,13 @@ def main():
                     raw=capture(data,bounds,aerial/'pilot.jpg')
                     self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Disposition','attachment; filename="intersection-benchmark.zip"');self.send_header('Content-Length',str(len(raw)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(raw)
                 except (ValueError,KeyError,OSError) as e:self.reply(400,json_bytes({'error':str(e)}))
+            elif urlsplit(self.path).path=='/api/imagery/tile':
+                try:
+                    q=parse_qs(urlsplit(self.path).query)
+                    p=tile_path(q['id'][0],int(q['level'][0]),int(q['x'][0]),int(q['y'][0]))
+                    if p:self.reply(200,p.read_bytes(),'image/png')
+                    else:self.reply(404,b'{}')
+                except (ValueError,KeyError,OSError):self.reply(400,b'{}')
             elif self.path=='/api/data':self.reply(200,json_bytes(data))
             elif self.path=='/api/proposals':
                 with lock:self.reply(200,json_bytes(read_ledger()))
