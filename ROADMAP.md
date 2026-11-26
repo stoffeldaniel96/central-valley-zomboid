@@ -53,3 +53,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 
 - [x] Implement independent imagery registry, display tile pyramid, local import and NAIP Plus catalog probe (verification pending).
 - [ ] Verify local high-resolution coverage and reuse terms; calibrate alignment and semantic segmentation using actual benchmark evidence.
+
+- [x] Implement 3DEP catalog discovery, explicit cached downloads, metric bare-earth grid and sparse classified point-cloud height diagnostics (live verification pending).
+- [ ] Verify California Gaps pilot tiles, vertical metadata, classified returns and elevation preview; derive road/rail profiles and building height evidence.
