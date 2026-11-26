@@ -27,18 +27,30 @@ else $('aerialToggle').disabled=true;
 $('aerialToggle').onchange=()=>{if(img)img.style.display=$('aerialToggle').checked?'':'none'};
 $('opacity').oninput=()=>{if(img)img.style.opacity=$('opacity').value/100};
 imageryGroup=el('g',{'pointer-events':'none'},stage);
-for(const m of d.imagery_layers||[]){const option=document.createElement('option');option.value=m.id;option.textContent=m.provider+' · '+(m.observed_at||'date unknown');$('imagerySelect').append(option)}
+const imageryOptions=new Map();
+for(const m of d.imagery_layers||[]){
+ const group=m.metadata?.mosaic_group||m.id;
+ if(!imageryOptions.has(group))imageryOptions.set(group,[]);
+ imageryOptions.get(group).push(m);
+}
+for(const [id,items] of imageryOptions){
+ const m=items[0],option=document.createElement('option');option.value=id;
+ option.textContent=m.provider+' · '+(m.metadata?.mosaic_group?items.length+' pilot patches':m.observed_at||'date unknown');
+ $('imagerySelect').append(option);
+}
 $('imagerySelect').onchange=()=>{
- activeImagery=(d.imagery_layers||[]).find(m=>m.id===$('imagerySelect').value)||null;
- $('imageryInfo').textContent=activeImagery?JSON.stringify({usage:activeImagery.usage,registration:activeImagery.registration,dimensions:[activeImagery.width,activeImagery.height],native_gsd_m:activeImagery.native_gsd_m,rights:activeImagery.rights_note||'Not reviewed',note:'Additional imagery is display-only in this version.'},null,2):'';
+ activeImagery=imageryOptions.get($('imagerySelect').value)||null;
+ const m=activeImagery?.[0];
+ $('imageryInfo').textContent=m?JSON.stringify({usage:m.usage,registration:m.registration,patches:activeImagery.length,native_gsd_m:m.native_gsd_m,rights:m.rights_note||'Not reviewed',note:'Additional imagery is display-only in this version.'},null,2):'';
  queueImagery();
 };
 $('imageryOpacity').oninput=()=>imageryGroup.style.opacity=Number($('imageryOpacity').value)/100;
 function queueImagery(){clearTimeout(imageryTimer);imageryTimer=setTimeout(renderImagery,80)}
 function renderImagery(){
  if(!imageryGroup)return;
- const m=activeImagery;
- if(!m){imageryGroup.replaceChildren();return}
+ if(!activeImagery){imageryGroup.replaceChildren();return}
+ const wanted=new Set(),existing=new Set([...imageryGroup.children].map(n=>n.dataset.key));
+ for(const m of activeImagery){
  const [a,b,c,e]=m.extent,x0=a-xmin,y0=ymax-e,iw=c-a,ih=e-b;
  const [vx,vy,vw,vh]=view,scale=svg.getScreenCTM()?.a||1;
  const projectedPerScreenPixel=1/Math.max(scale,1e-9);
@@ -47,12 +59,12 @@ function renderImagery(){
  const sx=iw/l.width,sy=ih/l.height,t=m.tile_size;
  const xStart=Math.max(0,Math.floor((vx-x0)/(t*sx))),xEnd=Math.min(l.cols,Math.ceil((vx+vw-x0)/(t*sx)));
  const yStart=Math.max(0,Math.floor((vy-y0)/(t*sy))),yEnd=Math.min(l.rows,Math.ceil((vy+vh-y0)/(t*sy)));
- const wanted=new Set();
  for(let y=yStart;y<yEnd;y++)for(let x=xStart;x<xEnd;x++){
   const key=m.id+'/'+l.level+'/'+x+'/'+y;wanted.add(key);
-  if([...imageryGroup.children].some(n=>n.dataset.key===key))continue;
+  if(existing.has(key))continue;
   const href='/api/imagery/tile?'+new URLSearchParams({id:m.id,level:l.level,x,y});
   const node=el('image',{href,x:x0+x*t*sx,y:y0+y*t*sy,width:Math.min(t,l.width-x*t)*sx,height:Math.min(t,l.height-y*t)*sy,preserveAspectRatio:'none'},imageryGroup);node.dataset.key=key;
+ }
  }
  for(const n of [...imageryGroup.children])if(!wanted.has(n.dataset.key))n.remove();
 }
