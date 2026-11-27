@@ -77,3 +77,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 
 - [x] Analyze actual pilot relief candidates and level-foundation groups; record conflicts and Better Terrain / Rolling Hills interoperability evidence.
 - [ ] Use full-pilot reconciled footprints and protected route/water constraints; solve seam-safe planar pads and relief jointly; verify upstream custom terrain interface and physical/render parity.
+
+- [x] Implement and execute shared regional candidate terrain fit with protected residual and planar foundation assertions on uploaded pilot (partial Overture only).
+- [ ] Run full local Overture fit; resolve blocked pads, new sharp transitions, missing water and grade-separated routes, and buffered sector seams before compilation.
