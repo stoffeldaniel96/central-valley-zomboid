@@ -31,3 +31,5 @@ See [dual-renderer asset contract](asset-contract.md). Reuse is a first-class de
 
 ## Ground-first gate
 Prove continuous ground geometry, signed vertical reference, slopes, surface boundaries and native-grid distortion before building reconstruction. Regional Z zero is explicit and persistent, not per-site, and native storey levels are backend-specific. Subsurface volumes and separate decks must remain independent from bare-earth height field. See ground-lab.md.
+
+All geographic acceptance benchmarks use actual Turlock locations. Synthetic fixtures are unit/regression tests only, not standalone map deliverables or required gates. Prioritize ground plane before buildings, preserve signed elevation and unknown coverage.

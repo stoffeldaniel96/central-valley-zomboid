@@ -98,7 +98,7 @@ def write_obj(path,vertices,bounds):
                 if nw and sw and ne:f.write(f'f {nw} {sw} {ne}\n')
                 if ne and sw and se:f.write(f'f {ne} {sw} {se}\n')
 
-def material_audit(path,local,bounds):
+def material_audit(path,local,bounds,samples_per_axis=4):
     """Independent proposed surfaces; union same class; do not resolve conflicts by priority."""
     src=json.loads(path.read_text())
     if src.get('crs',{}).get('properties',{}).get('name') not in ('EPSG:3857','urn:ogc:def:crs:EPSG::3857'):raise ValueError('Supply explicitly EPSG:3857 candidates')
@@ -122,14 +122,15 @@ def material_audit(path,local,bounds):
         return result
     base=classify(x,y);mixed=np.zeros(base.shape,bool);mismatch=known=conflict=0
     samples=[]
-    for dy in (-.375,-.125,.125,.375):
-        for dx in (-.375,-.125,.125,.375):
+    offsets=(np.arange(samples_per_axis)+.5)/samples_per_axis-.5
+    for dy in offsets[::-1]:
+        for dx in offsets:
             sub=classify(x+dx,y+dy);samples.append(sub)
             mixed|=sub!=base
             comparable=(sub>0)&(base>0)
             mismatch+=int((comparable&(sub!=base)).sum());known+=int(comparable.sum());conflict+=int((sub<0).sum())
     sub=np.stack(samples);exact={n:float(g.area) for n,g in zip(names,geoms)}
-    metrics={'candidate_sha256':sha(path),'classes':names,'exact_proposed_union_area_m2':exact,'center_sample_area_m2':{n:int((base==i).sum()) for i,n in enumerate(names,1)},'subtile_sample_area_m2':{n:float((sub==i).sum()/16) for i,n in enumerate(names,1)},'mixed_or_boundary_tiles':int(mixed.sum()),'unknown_center_tiles':int((base==0).sum()),'conflicting_center_tiles':int((base<0).sum()),'conflicting_subtile_samples':conflict,'known_to_known_mismatch_fraction':mismatch/known if known else None,'notes':'Proposed geometry only; area excludes conflicting classifications from sampled counts; unknown is not grass. Center/quarter-meter sample comparison does not determine rendering fidelity. No geometry edited.'}
+    metrics={'candidate_sha256':sha(path),'classes':names,'exact_proposed_union_area_m2':exact,'center_sample_area_m2':{n:int((base==i).sum()) for i,n in enumerate(names,1)},'subtile_sample_area_m2':{n:float((sub==i).sum()/samples_per_axis**2) for i,n in enumerate(names,1)},'sample_spacing_m':1/samples_per_axis,'total_native_tiles':int(base.size),'known_center_tiles':int((base>0).sum()),'mixed_or_boundary_tiles':int(mixed.sum()),'center_mismatch_including_unknown_conflict_fraction':float((sub!=base).mean()),'unknown_center_tiles':int((base==0).sum()),'conflicting_center_tiles':int((base<0).sum()),'conflicting_subtile_samples':conflict,'known_to_known_mismatch_fraction':mismatch/known if known else None,'notes':'Proposed geometry only; area excludes conflicting classifications from sampled counts; unknown is not grass. Center/subtile sample comparison does not determine rendering fidelity. No geometry edited.'}
     return metrics,base,sub
 
 def main():
@@ -137,6 +138,8 @@ def main():
     p.add_argument('--benchmark',type=Path,help='B01 benchmark ZIP with context extent');p.add_argument('--bounds',type=float,nargs=4,help='Local east/north meters')
     p.add_argument('--zero-elevation-m',type=float,help='Explicit persistent world vertical reference in DEM datum; never per benchmark')
     p.add_argument('--candidates',type=Path,help='Optional projected physical candidate GeoJSON')
+    p.add_argument('--horizontal-only',action='store_true',help='Audit actual candidate materials before elevation is available')
+    p.add_argument('--samples-per-axis',type=int,choices=(4,8),default=4)
     p.add_argument('--grade-step',type=float,default=.025);p.add_argument('--height-step',type=float,default=.05);p.add_argument('--storey-m',type=float,default=3)
     a=p.parse_args()
     if any(not math.isfinite(v) or v<=0 for v in (a.grade_step,a.height_step,a.storey_m)):p.error('Positive finite proxy parameters required')
@@ -148,6 +151,15 @@ def main():
         bounds=transform(Transformer.from_crs(3857,local,always_xy=True).transform,box(*m['context_extent'])).bounds
     else:bounds=a.bounds or [0,0,64,64]
     bounds=metric_window(bounds)
+    if a.horizontal_only:
+        if a.fixture or not a.candidates or not (a.benchmark or a.bounds):p.error('Horizontal audit needs real benchmark/bounds and projected candidates')
+        metrics,base,sub=material_audit(a.candidates,local,bounds,a.samples_per_axis)
+        out=ROOT/'output/ground_lab/horizontal';out.mkdir(parents=True,exist_ok=True)
+        np.savez_compressed(out/'materials.npz',material_center=base,material_subsamples=sub)
+        report={'bounds_east_north_m':list(bounds),'crs_wkt':local.to_wkt(),'elevation_status':'unknown_not_evaluated','material_audit':metrics,'materials_sha256':sha(out/'materials.npz')}
+        (out/'report.json').write_text(json.dumps(report,indent=2,allow_nan=False))
+        print(json.dumps(metrics,indent=2,allow_nan=False));print('Saved:',out)
+        return
     if a.fixture:
         if a.benchmark or a.candidates:p.error('Synthetic fixture must not be mixed with geographic observations')
         sample=fixture;source={'type':'synthetic_fixture','zero_elevation_m':0,'datum':'synthetic'}
@@ -162,7 +174,7 @@ def main():
     report['source']=source;report['crs_wkt']=None if a.fixture else local.to_wkt()
     if not report['valid_tiles']:p.error('No valid elevation tiles in window')
     if a.candidates:
-        report['material_audit'],arrays['material_center'],arrays['material_subsamples']=material_audit(a.candidates,local,bounds)
+        report['material_audit'],arrays['material_center'],arrays['material_subsamples']=material_audit(a.candidates,local,bounds,a.samples_per_axis)
     out=ROOT/'output/ground_lab'/('fixture' if a.fixture else 'benchmark');out.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(out/'ground.npz',**arrays)
     write_obj(out/'ground.obj',arrays['vertices'],report['bounds_east_north_m'])

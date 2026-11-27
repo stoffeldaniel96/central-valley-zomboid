@@ -23,7 +23,7 @@ Supersedes coverage-first plan. First product is Turlock, not Modesto–Merced. 
 | 09 | Architectural vocabulary | Graybox primitive/assembly/archetype registry, coverage audit, reusable gap-filling workflow |
 
 ## Delivery gates
-G0: independently inspect source data and inventory native assets. G1: ground-first gate: signed Z, slopes, independent surface geometry, native-grid distortion and real engine/Viewpoint traversal; buildings not required. Reproduce B01 ground and a synthetic below-zero/grade-separated fixture; document reference uncertainty. G2: diagonal room and native compiler compatibility experiments. G3: benchmark residential, commercial, institutional, industrial and rural environments with functional grayboxes. G4: complete Turlock physical/functional graybox with no unresolved critical gameplay failures. G5: graphical/material/1993 finish and fidelity validation; first public product. G6: expand using proven tools and assets.
+G0: independently inspect source data and inventory native assets. G1: ground-first gate: signed Z, slopes, independent surface geometry, native-grid distortion and real engine/Viewpoint traversal; buildings not required. Reproduce B01 ground and actual Turlock below-zero/grade-separated benchmark sites; document reference uncertainty. G2: diagonal room and native compiler compatibility experiments. G3: benchmark residential, commercial, institutional, industrial and rural environments with functional grayboxes. G4: complete Turlock physical/functional graybox with no unresolved critical gameplay failures. G5: graphical/material/1993 finish and fidelity validation; first public product. G6: expand using proven tools and assets.
 
 Parallel research is encouraged; gates are evidence-based, not deadlines. No fabricated coverage percentages or engine capability claims. See docs/benchmarks.md.
 
@@ -65,5 +65,8 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [ ] Analyze actual B01 benchmark package, derive first surface/structure candidates and quantify error before scaling.
 
 - [x] Implement signed metric ground laboratory, quantized slope and material sampling distortion reports, continuous terrain mesh output (local tests pending).
-- [ ] Verify native below-zero and slope mechanics in a disposable map; choose persistent regional vertical reference after checking DEM metadata.
+- [ ] Verify native below-zero and slope mechanics at actual Turlock benchmark sites; choose persistent regional vertical reference after checking DEM metadata.
 - [ ] Run real B01 ground reconstruction before building additions; preserve unknowns and separate stacked surfaces.
+
+- [x] Measure B01 provisional surface candidates at 1m, 25cm and 12.5cm; add horizontal-only ground audit before DEM availability.
+- [ ] Identify and validate real canal/depression, CA-99 and railway overpass ground benchmarks; no synthetic showcase map required.
