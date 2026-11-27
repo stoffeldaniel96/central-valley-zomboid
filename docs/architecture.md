@@ -39,3 +39,6 @@ Remove mechanically insignificant broad grade while preserving meaningful local 
 
 ## Foundation constraints
 Ordinary building foundations must remain planar in sanitized terrain. Explicit separate pads for stepped structures; reconcile entrances, roads, water, decks and protected relief before fitting. See [foundation terrain and Viewpoint research](foundation-terrain.md).
+
+## Standalone product and optional integrations
+The mapping toolchain and base map must operate without Viewpoint or Better Terrain. Full Viewpoint compatibility remains required, with optional adapters and independent native acceptance. No third-party terrain format becomes authoritative; avoid double-applied physical relief. See [ADR-003](decisions/003-optional-terrain-integrations.md).
