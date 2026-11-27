@@ -30,6 +30,9 @@ Maintain distinct observed, reconciled, sanitized and compiled representations. 
 See [dual-renderer asset contract](asset-contract.md). Reuse is a first-class design constraint; fewer than ten placements of a non-singular sprite triggers review rather than automatic deletion.
 
 ## Ground-first gate
-Prove continuous ground geometry, signed vertical reference, slopes, surface boundaries and native-grid distortion before building reconstruction. Regional Z zero is explicit and persistent, not per-site, and native storey levels are backend-specific. Subsurface volumes and separate decks must remain independent from bare-earth height field. See ground-lab.md.
+Prove continuous ground geometry, signed vertical reference, slopes, surface boundaries and native-grid distortion before building reconstruction. Game Z0 generally represents ordinary local terrain after a continuous, shared regional grade sanitization; absolute geographic heights retain their fixed datum. Never use independent per-site offsets. Native storey levels are backend-specific. Subsurface volumes and separate decks must remain independent from bare-earth height field. See ground-lab.md.
 
 All geographic acceptance benchmarks use actual Turlock locations. Synthetic fixtures are unit/regression tests only, not standalone map deliverables or required gates. Prioritize ground plane before buildings, preserve signed elevation and unknown coverage.
+
+## Central Valley vertical sanitization
+Remove mechanically insignificant broad grade while preserving meaningful local relief and feature relationships. See [vertical sanitization](vertical-sanitization.md). Shared baseline, semantic constraints and continuity required; diagnostic residuals are not production terrain.

@@ -65,8 +65,12 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [ ] Analyze actual B01 benchmark package, derive first surface/structure candidates and quantify error before scaling.
 
 - [x] Implement signed metric ground laboratory, quantized slope and material sampling distortion reports, continuous terrain mesh output (local tests pending).
-- [ ] Verify native below-zero and slope mechanics at actual Turlock benchmark sites; choose persistent regional vertical reference after checking DEM metadata.
+- [ ] Verify native below-zero and slope mechanics at actual Turlock benchmark sites; derive a continuous shared regional baseline and protect local relief after checking DEM metadata.
 - [ ] Run real B01 ground reconstruction before building additions; preserve unknowns and separate stacked surfaces.
 
 - [x] Measure B01 provisional surface candidates at 1m, 25cm and 12.5cm; add horizontal-only ground audit before DEM availability.
 - [ ] Identify and validate real canal/depression, CA-99 and railway overpass ground benchmarks; no synthetic showcase map required.
+
+- [x] Verify uploaded pilot DEM checksum, full coverage and vertical metadata; analyze observed local relief and broad trend.
+- [x] Adopt Central Valley selective vertical sanitization policy; add reproducible diagnostic (local CLI pending).
+- [ ] Review local relief against actual features; constrain regional flattening, protect drainage/decks and test shared boundaries. No final thresholds approved.
