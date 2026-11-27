@@ -28,3 +28,6 @@ Maintain distinct observed, reconciled, sanitized and compiled representations. 
 
 ## Asset acceptance
 See [dual-renderer asset contract](asset-contract.md). Reuse is a first-class design constraint; fewer than ten placements of a non-singular sprite triggers review rather than automatic deletion.
+
+## Ground-first gate
+Prove continuous ground geometry, signed vertical reference, slopes, surface boundaries and native-grid distortion before building reconstruction. Regional Z zero is explicit and persistent, not per-site, and native storey levels are backend-specific. Subsurface volumes and separate decks must remain independent from bare-earth height field. See ground-lab.md.
