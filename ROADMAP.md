@@ -74,3 +74,6 @@ G0 implementation begins with read-only local asset and OSM geometry diagnostics
 - [x] Verify uploaded pilot DEM checksum, full coverage and vertical metadata; analyze observed local relief and broad trend.
 - [x] Adopt Central Valley selective vertical sanitization policy; add reproducible diagnostic (local CLI pending).
 - [ ] Review local relief against actual features; constrain regional flattening, protect drainage/decks and test shared boundaries. No final thresholds approved.
+
+- [x] Analyze actual pilot relief candidates and level-foundation groups; record conflicts and Better Terrain / Rolling Hills interoperability evidence.
+- [ ] Use full-pilot reconciled footprints and protected route/water constraints; solve seam-safe planar pads and relief jointly; verify upstream custom terrain interface and physical/render parity.

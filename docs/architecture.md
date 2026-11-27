@@ -36,3 +36,6 @@ All geographic acceptance benchmarks use actual Turlock locations. Synthetic fix
 
 ## Central Valley vertical sanitization
 Remove mechanically insignificant broad grade while preserving meaningful local relief and feature relationships. See [vertical sanitization](vertical-sanitization.md). Shared baseline, semantic constraints and continuity required; diagnostic residuals are not production terrain.
+
+## Foundation constraints
+Ordinary building foundations must remain planar in sanitized terrain. Explicit separate pads for stepped structures; reconcile entrances, roads, water, decks and protected relief before fitting. See [foundation terrain and Viewpoint research](foundation-terrain.md).
