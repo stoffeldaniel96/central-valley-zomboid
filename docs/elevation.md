@@ -38,3 +38,6 @@ Both scripts now require explicit input Z unit. Convert US survey feet by 1200/3
 
 ## Rate-limited downloads
 HTTP 429 is a server throttle. Downloads now pause before each uncached transfer (default 10 seconds), honor Retry-After and use exponential backoff for 429/500/502/503/504. If the server asks for more than --max-wait (default 600 seconds), or retries are exhausted, stop and resume later. Completed files and validated checksums are reused; a partial failed tile is discarded, not byte-resumed. Do not run concurrent batches. For conservative pacing use --interval 30. No alternate host or limit bypass is attempted.
+
+## Download visibility
+Run `py -u src/fetch_elevation.py --kind opr --match CA_SanJoaquin_2021_A21 --interval 30 --timeout 30` (or `--kind lidar`). Prints startup, selection, cache checks, pacing, connection, HTTP status, received bytes/rate about every two seconds when bytes arrive, and validation. Socket timeout is per blocking operation, not whole-file deadline. Timeout and transient connection failures retry with backoff; no bypass of server rate limiting. `--retries 0` exposes first failure. Ctrl+C keeps completed files; incomplete current tile discarded on normal interruption. Catalog refresh failures preserve previously saved catalog. Tests cover retry behavior; live network validation pending.

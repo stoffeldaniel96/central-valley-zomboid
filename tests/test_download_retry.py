@@ -23,3 +23,15 @@ class RetryTests(unittest.TestCase):
         with patch('fetch_elevation.download',side_effect=error),patch('fetch_elevation.time.sleep') as sleep:
             with self.assertRaises(RuntimeError):download_with_retry('lidar',0,{},100)
             sleep.assert_not_called()
+
+    def test_timeout_retry(self):
+        with patch('fetch_elevation.download',side_effect=[TimeoutError('timed out'),None]) as dl,patch('fetch_elevation.time.sleep') as sleep:
+            download_with_retry('lidar',0,{},100,timeout=15)
+            self.assertEqual(dl.call_count,2)
+            self.assertEqual(dl.call_args.kwargs['timeout'],15)
+            sleep.assert_called_once_with(30)
+    def test_no_retry_on_permanent_http(self):
+        error=urllib.error.HTTPError('https://example.org',403,'Forbidden',{},None)
+        with patch('fetch_elevation.download',side_effect=error),patch('fetch_elevation.time.sleep') as sleep:
+            with self.assertRaises(urllib.error.HTTPError):download_with_retry('lidar',0,{},100)
+            sleep.assert_not_called()

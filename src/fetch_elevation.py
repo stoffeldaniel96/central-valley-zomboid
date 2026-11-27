@@ -1,8 +1,8 @@
 """Discover bounded USGS 3DEP products; explicitly select downloads."""
-import argparse,datetime,hashlib,json,urllib.parse,urllib.request,urllib.error,time,math
+import argparse,datetime,hashlib,json,urllib.parse,urllib.request,urllib.error,time,math,http.client
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from workbench_data import ROOT
+ROOT=Path(__file__).resolve().parents[1]
 
 API='https://tnmaccess.nationalmap.gov/api/v1/products'
 DATASETS={'opr':'Original Product Resolution (OPR) Digital Elevation Model (DEM)',
@@ -10,13 +10,14 @@ DATASETS={'opr':'Original Product Resolution (OPR) Digital Elevation Model (DEM)
           'lidar':'Lidar Point Cloud (LPC)'}
 OUT=ROOT/'data/elevation'
 
-def query(dataset,bbox):
+def query(dataset,bbox,timeout=30):
     items=[];offset=0
     while True:
         params={'datasets':dataset,'bbox':','.join(map(str,bbox)),'max':100,'offset':offset}
         url=API+'?'+urllib.parse.urlencode(params)
         req=urllib.request.Request(url,headers={'User-Agent':'CentralValleyWorkbench/0.4'})
-        with urllib.request.urlopen(req,timeout=90) as response:d=json.load(response)
+        print(f'  Requesting catalog page at offset {offset} (socket timeout {timeout:g}s)',flush=True)
+        with urllib.request.urlopen(req,timeout=timeout) as response:d=json.load(response)
         if 'items' not in d:raise ValueError('Invalid catalog response: '+str(d)[:400])
         batch=d['items'];items.extend(batch)
         total=int(d.get('total',len(items)))
@@ -35,16 +36,22 @@ def sha(path):
 def save_json(path,obj):
     temp=path.with_suffix('.tmp');temp.write_text(json.dumps(obj,indent=2),encoding='utf-8');temp.replace(path)
 
-def discover():
+def discover(timeout=30):
     bbox=json.loads((ROOT/'output/stats.json').read_text())['pilot_bbox']
     report={'bbox':bbox,'retrieved_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'api':API,'products':{},'issues':[]}
     for key,dataset in DATASETS.items():
         try:
-            items=query(dataset,bbox);report['products'][key]=items
+            print(f'Querying {key} catalog...',flush=True)
+            items=query(dataset,bbox,timeout);report['products'][key]=items
             print(key,len(items),'products',flush=True)
             for i,item in enumerate(items):
                 print(f'  {key}:{i} {item.get("title")} | {item.get("sizeInBytes")} bytes')
         except (OSError,ValueError,KeyError,TypeError) as e:report['issues'].append({'dataset':key,'error':str(e)});print(key,e)
+    # Preserve a usable previous catalog if discovery was incomplete.
+    if report['issues'] and (OUT/'catalog.json').exists():
+        save_json(OUT/'catalog_failed.json',report)
+        print('Incomplete discovery; existing catalog preserved. See catalog_failed.json.',flush=True)
+        return
     save_json(OUT/'catalog.json',report)
     print('Catalog:',OUT/'catalog.json')
 
@@ -69,10 +76,10 @@ def retry_delay(header,attempt,now=None):
         if math.isfinite(value):delay=max(delay,value)
     return math.ceil(delay)
 
-def download_with_retry(key,index,item,max_bytes,retries=4,interval=10,max_wait=600):
+def download_with_retry(key,index,item,max_bytes,retries=4,interval=10,max_wait=600,timeout=30):
     for attempt in range(retries+1):
         try:
-            return download(key,index,item,max_bytes,interval=interval)
+            return download(key,index,item,max_bytes,interval=interval,timeout=timeout)
         except urllib.error.HTTPError as exc:
             code=exc.code
             header=exc.headers.get('Retry-After') if exc.headers else None
@@ -83,8 +90,16 @@ def download_with_retry(key,index,item,max_bytes,retries=4,interval=10,max_wait=
                 raise RuntimeError(f'HTTP {code} for {key}:{index}; retry later (server/backoff delay {delay}s). Completed tiles retained.') from exc
             print(f'HTTP {code} for {key}:{index}; retry {attempt+1}/{retries} after {delay}s',flush=True)
             time.sleep(delay)
+        except (TimeoutError,ConnectionError,urllib.error.URLError,http.client.IncompleteRead) as exc:
+            # HTTPError is handled above; do not retry certificates or permanent HTTP failures.
+            if isinstance(exc,urllib.error.URLError) and not isinstance(exc.reason,(TimeoutError,ConnectionError)):
+                raise
+            delay=retry_delay(None,attempt)
+            if attempt==retries or delay>max_wait:raise RuntimeError(f'Network failure for {key}:{index}: {exc}. Completed tiles retained.') from exc
+            print(f'Network failure for {key}:{index}: {exc}; retry {attempt+1}/{retries} after {delay}s',flush=True)
+            time.sleep(delay)
 
-def download(key,index,item,max_bytes,interval=10):
+def download(key,index,item,max_bytes,interval=10,timeout=30):
     url=item.get('downloadURL')
     if not isinstance(url,str) or not allowed(url):raise ValueError('Unexpected download URL: '+str(url))
     name=Path(urllib.parse.unquote(urllib.parse.urlsplit(url).path)).name
@@ -96,29 +111,42 @@ def download(key,index,item,max_bytes,interval=10):
     dest=folder/(hashlib.sha256(url.encode()).hexdigest()[:12]+'-'+name)
     manifest=dest.with_suffix(dest.suffix+'.json')
     if dest.exists() and manifest.exists():
+        print(f'Checking cached {key}:{index} {name}...',flush=True)
         m=json.loads(manifest.read_text())
         if m.get('url')==url and m.get('sha256')==sha(dest):
-            print('Using cached',dest);return
+            print('Using cached',dest,flush=True);return
     temp=dest.with_suffix(dest.suffix+'.part');n=0
     try:
         print(f'Downloading {key}:{index} {name} (pacing {interval:g}s)',flush=True)
         time.sleep(interval)
+        print(f'Connecting to {urllib.parse.urlsplit(url).hostname} (socket timeout {timeout:g}s)...',flush=True)
         req=urllib.request.Request(url,headers={'User-Agent':'CentralValleyWorkbench/0.4'})
-        with urllib.request.urlopen(req,timeout=180) as response,temp.open('wb') as f:
+        with urllib.request.urlopen(req,timeout=timeout) as response,temp.open('wb') as f:
             if not allowed(response.geturl()):raise ValueError('Unexpected redirected host')
             length=response.headers.get('Content-Length')
             if length and int(length)>max_bytes:raise ValueError('Response exceeds configured download cap')
-            while b:=response.read(1024*1024):
+            total=int(length) if length else None
+            print(f'HTTP {response.status}; receiving '+(f'{total/1e6:.1f} MB' if total else 'unknown response size'),flush=True)
+            started=last=time.monotonic()
+            # read1 returns available bytes rather than waiting to fill a whole MiB.
+            read=getattr(response,'read1',response.read)
+            while b:=read(1024*1024):
                 n+=len(b)
                 if n>max_bytes:raise ValueError('Download exceeded cap')
                 f.write(b)
+                now=time.monotonic()
+                if now-last>=2:
+                    percent=f' / {total/1e6:.1f} MB ({n/total:.0%})' if total else ' MB'
+                    print(f'  {n/1e6:.1f}'+percent+f' | {n/1e6/max(now-started,.001):.2f} MB/s',flush=True)
+                    last=now
+            print(f'  Received {n/1e6:.1f} MB; checking file...',flush=True)
         if not n or (length and n!=int(length)):raise ValueError('Incomplete download')
         with temp.open('rb') as f:magic=f.read(4)
         if Path(name).suffix.lower() in ('.laz','.las'):
             if magic!=b'LASF':raise ValueError('Expected LAS/LAZ')
         elif magic not in (b'II*\x00',b'MM\x00*',b'II+\x00',b'MM\x00+'):raise ValueError('Expected TIFF')
         m={'url':url,'sha256':sha(temp),'bytes':n,'dataset':key,'catalog_index':index,'catalog_item':item,'retrieved_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'vertical_datum':'verify from product metadata; not inferred from horizontal CRS'}
-        temp.replace(dest);save_json(manifest,m);print('Saved',dest)
+        temp.replace(dest);save_json(manifest,m);print('Saved',dest,flush=True)
     finally:
         if temp.exists():temp.unlink()
 
@@ -131,11 +159,15 @@ def main():
     p.add_argument('--interval',type=float,default=10,help='Minimum pause before each uncached transfer, seconds (default 10)')
     p.add_argument('--retries',type=int,default=4,help='Retries on 429 and transient HTTP 5xx (default 4)')
     p.add_argument('--max-wait',type=int,default=600,help='Stop if required retry delay exceeds this many seconds')
+    p.add_argument('--timeout',type=float,default=30,help='Socket timeout in seconds (default 30; not a total download deadline)')
     a=p.parse_args()
+    if not math.isfinite(a.timeout) or a.timeout<=0:p.error('Invalid timeout')
+    print('Elevation downloader started',flush=True)
     if not math.isfinite(a.interval) or a.interval<1 or not 0<=a.retries<=8 or a.max_wait<1:p.error('Invalid pacing/retry settings')
     OUT.mkdir(parents=True,exist_ok=True)
-    if not a.download and not a.match:discover();return
+    if not a.download and not a.match:discover(a.timeout);return
     if a.max_mb<=0:p.error('Invalid download cap')
+    print('Reading saved catalog:',OUT/'catalog.json',flush=True)
     report=json.loads((OUT/'catalog.json').read_text())
     chosen=[]
     for selection in a.download or []:
@@ -146,8 +178,10 @@ def main():
         if not a.kind:p.error('--match requires --kind')
         chosen.extend((a.kind,i,item) for i,item in enumerate(report['products'].get(a.kind,[])) if a.match.lower() in json.dumps(item).lower())
     if not chosen:p.error('No matching products; inspect catalog')
-    for key,i,item in chosen:
-        try:download_with_retry(key,i,item,a.max_mb*1_000_000,a.retries,a.interval,a.max_wait)
-        except (RuntimeError,OSError,ValueError) as exc:p.exit(1,f'Download stopped at {key}:{i}: {exc}\nRe-run the same command to resume completed tiles.\n')
+    print(f'{len(chosen)} selected products; checking existing files first, sequential downloads only.',flush=True)
+    for position,(key,i,item) in enumerate(chosen,1):
+        print(f'[{position}/{len(chosen)}] {key}:{i} {item.get("title", "")}',flush=True)
+        try:download_with_retry(key,i,item,a.max_mb*1_000_000,a.retries,a.interval,a.max_wait,a.timeout)
+        except (RuntimeError,OSError,ValueError,http.client.HTTPException) as exc:p.exit(1,f'Download stopped at {key}:{i}: {exc}\nRe-run the same command to resume completed tiles.\n')
 
 if __name__=='__main__':main()
