@@ -1,0 +1,17 @@
+# Engine integration: actual B01 flat control
+
+The first test uses geographic cell bounds east/north [-768,512,-512,768] in project AEQD, north up, 256x256 native squares. Independent minimal B42 LOTH/LOTP v1 writer based on the published MIT osm2zomboid format and palette reference (https://github.com/jinxlover/osm2zomboid). No vendor code or game art bundled. Native flat control only: all squares z=0, one vanilla base sprite, no buildings, barriers, marked lanes, rail assemblies, vehicles, or elevation mechanics. Missing and conflicting observations use explicit test-only placeholder sprites, not promoted materials. The actual local test wrote and decoded all 65,536 records successfully. Game loading and palette not verified. Example engine placement 51,42 taken from upstream example, not a verified empty cell for installed game. Standalone map.info does not include vanilla lots. Test only in a disposable new save; no automatic install. Select Unemployed. If load fails, collect console.txt and exact game build. World transform temporary, not release origin.
+
+Run with downloaded V3 arrays/report and projected B01 v3 candidates:
+```powershell
+py src/engine_benchmark.py build --terrain-dir PATH_TO_V3 --candidates PATH_TO_CANDIDATES --out output/B01_engine_control --cell0 51 42
+```
+Output path must not exist. Shared ground NPZ contains 516x516 0.5m height samples (1m halo), constraint/edge flags, 256x256 material centers; no native slope assumptions. V3 terrain SHA aeddbf2e19f593004d4f77474dff512ed897fa8c865246dfe04b0c2defc2dc8d. Source candidate SHA 8f89f0d88bcda5ec3ff3b57ab841f7ed1391db8b8f8b7a0eb6670b5197ecf658 (verify report for exact actual hash). Local generated cell counts: unknown 39411, conflict 515, grass 332, gravel 2337, pavement 22583, sidewalk 358; signed source range -0.33949 to +1.00886m; 8627 native square centers exceed 10cm absolute elevation (average of four samples), 891 squares have >10cm sample range. 5759 half-m samples blocked or edge-review. Flat native control is intentionally not equivalent in elevation. Repository variant adds thumb/poster generation and input validation; full run in user's environment pending. V3 algorithm not yet committed; package data only.
+
+## Next: inspect Better Terrain
+Workshop 3815223174, developer states physical release targets 42.21, standard-map data, MP unvalidated; https://steamcommunity.com/workshop/filedetails/?id=3815223174 . Viewpoint terrainHeight query is read-only, documented units sqrt(6) squares per storey, not a custom provider https://docs.projectviewpoint.org/api/view-state/ . B42 native getSlopedSurfaceHeight and SlopedSurface* properties exist; arbitrary values and directions need testing; community note https://hydecogames.com/tools/mapformats/ . Do not assume compatible versions or double-apply relief.
+
+```powershell
+py src/engine_benchmark.py inspect --workshop-dir "C:\Program Files (x86)\Steam\steamapps\workshop\content\108600\3815223174" --out output/better_terrain_inventory.json
+```
+Adjust Steam library as required. Inventory is read-only; names, sizes, JAR/ZIP entries, mod.info metadata only. No original binaries copied. Use it to identify height data and provider interfaces, then inspect specific public/config files. Test native control first, then Viewpoint with relief disabled, then measured terrain via supported API or version-pinned adapter. Native and Viewpoint must agree on physical elevations; no game or mod installation available in assistant environment.
